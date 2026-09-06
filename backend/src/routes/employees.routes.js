@@ -80,6 +80,31 @@ router.post('/:id/reset-password', requireAuth, requireRole('manager', 'admin'),
   res.json({ temporaryPassword: tempPassword });
 });
 
+// POST /api/employees/reset-all-passwords — admin only: reset EVERY other
+// account to the shared onboarding password and force a change on next login.
+// The acting admin's own account is excluded, so whoever runs this stays logged
+// in and keeps their password. Only the password/lockout columns are touched —
+// no work history, tasks, projects or profile data are altered.
+router.post('/reset-all-passwords', requireAuth, requireRole('admin'), async (req, res) => {
+  if (!process.env.DEFAULT_PASSWORD) {
+    return res.status(400).json({
+      error: 'No shared onboarding password is configured. Set the DEFAULT_PASSWORD environment variable on the server first, then try again.',
+    });
+  }
+  const hash = await bcrypt.hash(process.env.DEFAULT_PASSWORD, 12);
+  const { rowCount } = await db.query(
+    `UPDATE employees
+        SET password_hash = $1, must_reset_pw = true, failed_attempts = 0, locked_until = NULL, updated_at = now()
+      WHERE id <> $2`,
+    [hash, req.user.id]
+  );
+  await db.query(
+    'INSERT INTO audit_log (actor_employee_id, action, target, ip_address) VALUES ($1,$2,$3,$4)',
+    [req.user.id, 'password_reset_all', String(rowCount), req.ip]
+  );
+  res.json({ ok: true, count: rowCount });
+});
+
 // PATCH /api/employees/:id — admin only: edit a user's name, department and
 // permanent access level.
 router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {

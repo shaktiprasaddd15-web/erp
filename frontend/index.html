@@ -753,6 +753,7 @@
                     <div class="users-layout">
                         <div class="users-side">
                             <button class="btn btn-primary" id="add-emp-btn" style="width:100%;justify-content:center;margin-bottom:10px;">+ Add Employee</button>
+                            <button class="btn btn-ghost hidden" id="reset-all-btn" style="width:100%;justify-content:center;margin-bottom:10px;font-size:12.5px;">Reset everyone's password</button>
                             <input type="text" id="users-search" placeholder="Search by name..." style="width:100%;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;background:var(--input-bg);outline:none;margin-bottom:8px;" />
                             <select id="users-dept-filter"><option value="all">All Departments</option></select>
                             <div class="u-list" id="u-list"></div>
@@ -1500,6 +1501,31 @@
         }
         document.getElementById('pf-mode').onchange = e => { PF.mode = e.target.value; renderProjectsFilterSecond(); loadProjectsList(); };
         document.getElementById('add-emp-btn').onclick = openAddEmployeeModal;
+        document.getElementById('reset-all-btn').onclick = resetAllPasswords;
+
+        // Admin-only: put every OTHER account onto the shared onboarding password
+        // and force each person to set their own on next login. The acting admin
+        // is excluded server-side, so this account stays logged in. Only login
+        // credentials change — no work history is touched.
+        async function resetAllPasswords() {
+            const others = (USERS_CACHE || []).filter(e => e.id !== CURRENT_USER.id).length;
+            const msg = `Reset the password of ${others || 'every other'} account to the shared onboarding password?\n\n`
+                + `• Your own account (${CURRENT_USER.name}) is NOT affected — you stay logged in.\n`
+                + `• Everyone else must set a new password the next time they log in.\n`
+                + `• No work updates, tasks or history are changed.\n\n`
+                + `Only do this when you're ready to tell the team the common password. This cannot be undone.`;
+            if (!confirm(msg)) return;
+            const btn = document.getElementById('reset-all-btn');
+            btn.disabled = true; btn.textContent = 'Resetting…';
+            try {
+                const r = await api('/api/employees/reset-all-passwords', { method: 'POST' });
+                alert(`Done. ${r.count} account${r.count === 1 ? '' : 's'} were reset to the shared onboarding password. They will each set their own password on next login.`);
+            } catch (e) {
+                alert(e.message);
+            } finally {
+                btn.disabled = false; btn.textContent = "Reset everyone's password";
+            }
+        }
 
         // ════════ ADD EMPLOYEE / RESET PASSWORD (managers/admins) ════════
         function nextEmpCode() {
@@ -2438,6 +2464,8 @@
         let USERS_CACHE = [];
 
         async function loadUsers() {
+            // Bulk password reset is an admin-only, whole-directory action.
+            document.getElementById('reset-all-btn').classList.toggle('hidden', !isAdmin());
             const dept = document.getElementById('users-dept-filter').value;
             const listEl = document.getElementById('u-list');
             try {
