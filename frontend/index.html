@@ -2674,7 +2674,9 @@
             // clear it so an important account can log back in without a reset.
             const lockedUntil = emp.locked_until ? new Date(emp.locked_until) : null;
             const isLocked = !!(lockedUntil && lockedUntil > new Date());
-            const canUnblock = isAdmin() && (isLocked || (emp.failed_attempts || 0) > 0);
+            // Always available to admins, so the unblock control is there whenever
+            // it's needed (it's a harmless no-op when the account isn't locked).
+            const canUnblock = isAdmin();
             panel.innerHTML = `
                 <div class="panel-head">
                     <div>
