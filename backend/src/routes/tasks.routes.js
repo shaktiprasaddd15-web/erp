@@ -78,6 +78,15 @@ function scrubStipend(data, user) {
   return Array.isArray(data) ? data.map(strip) : strip(data);
 }
 
+// Work updates feed each person's personal report, so they are private to the
+// people they belong to. Only the task's own assignees (posting their own work)
+// and admin / HR may see or post them — managers, by policy, cannot see other
+// people's work updates.
+async function canSeeWorkUpdates(taskId, user) {
+  if (user.accessRole === 'admin' || user.accessRole === 'hr') return true;
+  return await isAssignee(taskId, user.id);
+}
+
 // Can this user edit the task's fields? (any assignee, the project's manager, or an admin)
 async function canEditTask(task, user) {
   if (user.accessRole === 'admin' || user.accessRole === 'manager') return true;
@@ -233,10 +242,11 @@ router.post('/:id/submit', requireAuth, wrap(async (req, res) => {
   );
   if (!rows[0]) return res.status(404).json({ error: 'Task not found.' });
   const task = rows[0];
-  const priv = req.user.accessRole === 'manager' || req.user.accessRole === 'admin';
-  const allowed = priv || task.assignee_id === req.user.id || task.manager_id === req.user.id
-    || (await isMember(db, task.project_id, req.user.id));
-  if (!allowed) return res.status(403).json({ error: 'Only members of this project can comment on the task.' });
+  // A work update is the author's own record of what they did, so only the
+  // task's assignees (and admin/HR) may post one.
+  if (!(await canSeeWorkUpdates(task.id, req.user))) {
+    return res.status(403).json({ error: 'Only the people this task is assigned to can post a work update.' });
+  }
 
   const client = await db.pool.connect();
   try {
@@ -271,8 +281,7 @@ router.post('/:id/submit', requireAuth, wrap(async (req, res) => {
 router.get('/:id/submissions', requireAuth, wrap(async (req, res) => {
   const { rows: t } = await db.query('SELECT project_id, assignee_id FROM tasks WHERE id = $1', [req.params.id]);
   if (!t[0]) return res.status(404).json({ error: 'Task not found.' });
-  const priv = req.user.accessRole === 'manager' || req.user.accessRole === 'admin';
-  if (!priv && t[0].assignee_id !== req.user.id && !(await isMember(db, t[0].project_id, req.user.id))) {
+  if (!(await canSeeWorkUpdates(req.params.id, req.user))) {
     return res.status(403).json({ error: 'Not allowed.' });
   }
   const { rows } = await db.query(
@@ -293,7 +302,7 @@ router.get('/:id/comments', requireAuth, wrap(async (req, res) => {
     return res.status(403).json({ error: 'Not allowed.' });
   }
   const { rows } = await db.query(
-    `SELECT c.id, c.body, c.created_at, e.name AS author
+    `SELECT c.id, c.body, c.created_at, c.mentions, e.name AS author
      FROM task_comments c LEFT JOIN employees e ON e.id = c.employee_id
      WHERE c.task_id = $1 ORDER BY c.created_at DESC`,
     [req.params.id]
@@ -304,17 +313,42 @@ router.get('/:id/comments', requireAuth, wrap(async (req, res) => {
 router.post('/:id/comments', requireAuth, wrap(async (req, res) => {
   const { body } = req.body || {};
   if (!body || !body.trim()) return res.status(400).json({ error: 'Write a comment.' });
-  const { rows: t } = await db.query('SELECT project_id, assignee_id FROM tasks WHERE id = $1', [req.params.id]);
+  const { rows: t } = await db.query('SELECT project_id, assignee_id, title FROM tasks WHERE id = $1', [req.params.id]);
   if (!t[0]) return res.status(404).json({ error: 'Task not found.' });
   const priv = req.user.accessRole === 'manager' || req.user.accessRole === 'admin';
   if (!priv && t[0].assignee_id !== req.user.id && !(await isMember(db, t[0].project_id, req.user.id))) {
     return res.status(403).json({ error: 'Only members of this project can comment.' });
   }
+
+  // Tagged people: keep only ids who are actually members of this project, so a
+  // comment can't tag someone unrelated. Cap to a sane number.
+  let mentions = Array.isArray(req.body?.mentions) ? req.body.mentions.map(Number).filter(Number.isInteger) : [];
+  mentions = [...new Set(mentions)].slice(0, 30);
+  if (mentions.length) {
+    const { rows: valid } = await db.query(
+      'SELECT employee_id FROM project_members WHERE project_id = $1 AND employee_id = ANY($2)',
+      [t[0].project_id, mentions]
+    );
+    mentions = valid.map((r) => r.employee_id);
+  }
+
   const { rows } = await db.query(
-    `INSERT INTO task_comments (task_id, employee_id, body) VALUES ($1,$2,$3)
-     RETURNING id, body, created_at`,
-    [req.params.id, req.user.id, body.trim().slice(0, 4000)]
+    `INSERT INTO task_comments (task_id, employee_id, body, mentions) VALUES ($1,$2,$3,$4)
+     RETURNING id, body, mentions, created_at`,
+    [req.params.id, req.user.id, body.trim().slice(0, 4000), mentions]
   );
+
+  // Notify tagged people (except the author), best-effort.
+  const notify = mentions.filter((id) => id !== req.user.id);
+  if (notify.length) {
+    try {
+      await sendPushToEmployees(notify, {
+        title: 'You were tagged in a comment',
+        body: `${req.user.name} tagged you on "${t[0].title}".`,
+      });
+    } catch (e) { /* best-effort */ }
+  }
+
   res.status(201).json({ comment: rows[0] });
 }));
 
@@ -502,7 +536,11 @@ async function requireTaskManager(req, res) {
   return true;
 }
 router.delete('/:id/submissions', requireAuth, wrap(async (req, res) => {
-  if (!(await requireTaskManager(req, res))) return;
+  // Work updates are private records; only admin/HR may clear them (managers
+  // cannot see work updates, so they cannot clear them either).
+  if (req.user.accessRole !== 'admin' && req.user.accessRole !== 'hr') {
+    return res.status(403).json({ error: 'Only an admin or HR can clear work updates.' });
+  }
   const { rowCount } = await db.query('DELETE FROM task_submissions WHERE task_id = $1', [req.params.id]);
   res.json({ ok: true, deleted: rowCount });
 }));

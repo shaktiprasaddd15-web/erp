@@ -560,6 +560,11 @@
         .pg-range label { display: flex; flex-direction: column; gap: 3px; font-size: 10.5px; color: var(--ink-soft); font-weight: 600; }
         .pg-range input[type="date"] { border: 1px solid var(--border); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 12px; }
         .perf-date { border: 1px solid var(--border); background: var(--input-bg, var(--bg)); color: var(--ink); border-radius: 8px; padding: 7px 8px; font: inherit; font-size: 12.5px; }
+        .cmt-mention { color: var(--brand-deep); font-weight: 600; background: var(--brand-soft); border-radius: 4px; padding: 0 3px; }
+        .dw-tagpop { position: absolute; bottom: 110%; left: 0; z-index: 10; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); min-width: 180px; max-height: 220px; overflow-y: auto; padding: 5px; }
+        .dw-tagpop .opt { padding: 7px 10px; border-radius: 7px; font-size: 13px; cursor: pointer; }
+        .dw-tagpop .opt:hover { background: var(--brand-soft); }
+        .dw-tag-chip { display: inline-block; background: var(--brand-soft); color: var(--brand-deep); border-radius: 20px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; margin: 2px 4px 2px 0; }
 
         /* ── user detail: compact meta + projects/tasks/updates drill-down ── */
         .u-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 12px 14px; margin-bottom: 18px;
@@ -719,9 +724,11 @@
                                 <div class="field hidden" id="lv-end-wrap"><label>End date</label><input type="date" id="lv-end"></div>
                             </div>
                             <div class="field"><label>Reason</label><textarea class="field-ta" id="lv-reason" placeholder="Reason for your leave…"></textarea></div>
+                            <div class="field"><label>Submit to (HR)</label>
+                                <select id="lv-hr"><option value="">Choose your HR…</option></select></div>
                             <div class="form-error hidden" id="lv-err"></div>
-                            <div class="saved-msg hidden" id="lv-ok" style="display:block;margin:0 0 10px;">Leave submitted to HR.</div>
-                            <button class="btn btn-primary" id="lv-submit">Submit to HR</button>
+                            <div class="saved-msg hidden" id="lv-ok" style="display:block;margin:0 0 10px;">Leave submitted.</div>
+                            <button class="btn btn-primary" id="lv-submit">Submit leave</button>
                         </div>
                         <div class="mail-card">
                             <div class="section-title" style="margin-bottom:12px;">Your leaves</div>
@@ -888,8 +895,18 @@
         function isHR() { return CURRENT_USER && CURRENT_USER.accessRole === 'hr'; }
         // HR and admin see the stipend field and the full leave history.
         function canSeeStipend() { return CURRENT_USER && ['admin', 'hr'].includes(CURRENT_USER.accessRole); }
-        // Who can open the people-ops areas (Users / Performance): managers, admins, HR.
-        function canViewPeople() { return CURRENT_USER && ['manager', 'admin', 'hr'].includes(CURRENT_USER.accessRole); }
+        // Who can open the people-ops areas (Users / Performance): admins and HR
+        // only. Managers can run projects and assign tasks but cannot see anyone's
+        // performance, work-update history, or personal reports.
+        function canViewPeople() { return CURRENT_USER && ['admin', 'hr'].includes(CURRENT_USER.accessRole); }
+        // Is a given task assigned to the current user (primary or collective)?
+        function isMineTask(t) {
+            if (!t || !CURRENT_USER) return false;
+            if (t.assignee_id === CURRENT_USER.id) return true;
+            return Array.isArray(t.assignees) && t.assignees.some(a => a.id === CURRENT_USER.id);
+        }
+        // Who may see a task's Work Update space: its assignees, plus admin/HR.
+        function canSeeWorkUpdates(t) { return isAdmin() || isHR() || isMineTask(t); }
         function isInternEmp(emp) { return /intern/i.test((emp && emp.job_title) || ''); }
         function currentIsIntern() { return CURRENT_USER && (CURRENT_USER.accessRole === 'employee' || /intern/i.test(CURRENT_USER.jobTitle || '')); }
 
@@ -1164,7 +1181,7 @@
                         <div class="dw-proj">${projName ? esc(projName) : ''}${t.assigned_by_name ? ' · by ' + esc(t.assigned_by_name) : ''}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-                        ${DRAWER.ctx.fromMyTasks ? '' : `<button class="btn btn-primary" id="dw-workupdate" style="padding:7px 12px;font-size:12.5px;">Work Update${t.update_count ? ' · ' + t.update_count : ''}</button>`}
+                        ${(DRAWER.ctx.fromMyTasks || !canSeeWorkUpdates(t)) ? '' : `<button class="btn btn-primary" id="dw-workupdate" style="padding:7px 12px;font-size:12.5px;">Work Update${t.update_count ? ' · ' + t.update_count : ''}</button>`}
                         <button class="x" id="dw-close">✕</button>
                     </div>
                 </div>
@@ -1240,27 +1257,73 @@
         // ── Comments tab: DISCUSSION only (not the work update). ──
         async function renderCommentsTab(body) {
             const t = DRAWER.task;
+            const mentions = new Map();   // id -> name, people tagged in the draft
             body.innerHTML = `
                 <div class="dw-composer">
-                    <textarea id="dw-body" placeholder="Add a comment for discussion…"></textarea>
+                    <textarea id="dw-body" placeholder="Add a comment… use “@ Tag” to notify a teammate"></textarea>
+                    <div id="dw-tagged" style="margin:4px 0;"></div>
                     <div class="dw-compose-actions">
                         <button class="btn btn-primary" id="dw-comment">Comment</button>
+                        <span style="position:relative;">
+                            <button class="btn btn-ghost" id="dw-tagbtn" type="button">@ Tag</button>
+                            <div id="dw-tagpop" class="dw-tagpop hidden"></div>
+                        </span>
                         <span class="form-error hidden" id="dw-err" style="margin:0;flex:1;"></span>
                     </div>
                 </div>
                 <div id="dw-comments"><div class="cmt-empty">Loading…</div></div>`;
+
+            const taggedBox = document.getElementById('dw-tagged');
+            const renderTagged = () => {
+                taggedBox.innerHTML = [...mentions.entries()].map(([id, name]) =>
+                    `<span class="dw-tag-chip" data-untag="${id}">${esc(name)} ✕</span>`).join('');
+                taggedBox.querySelectorAll('[data-untag]').forEach(ch =>
+                    ch.onclick = () => { mentions.delete(Number(ch.dataset.untag)); renderTagged(); });
+            };
+
+            // Tag picker — project members, minus the current user.
+            const pop = document.getElementById('dw-tagpop');
+            const tagBtn = document.getElementById('dw-tagbtn');
+            tagBtn.onclick = async () => {
+                if (!pop.classList.contains('hidden')) { pop.classList.add('hidden'); return; }
+                const members = (await drawerMembers()).filter(m => m.id !== CURRENT_USER.id);
+                pop.innerHTML = members.length
+                    ? members.map(m => `<div class="opt" data-id="${m.id}" data-name="${esc(m.name)}">${esc(m.name)}</div>`).join('')
+                    : '<div class="opt muted">No teammates on this project yet.</div>';
+                pop.querySelectorAll('.opt[data-id]').forEach(o => o.onclick = () => {
+                    const id = Number(o.dataset.id), name = o.dataset.name;
+                    mentions.set(id, name);
+                    const ta = document.getElementById('dw-body');
+                    ta.value = (ta.value + (ta.value && !ta.value.endsWith(' ') ? ' ' : '') + '@' + name + ' ');
+                    renderTagged();
+                    pop.classList.add('hidden');
+                    ta.focus();
+                });
+                pop.classList.remove('hidden');
+            };
+
             document.getElementById('dw-comment').onclick = async () => {
                 const err = document.getElementById('dw-err'); err.classList.add('hidden');
                 const text = document.getElementById('dw-body').value.trim();
                 if (!text) { err.textContent = 'Write a comment.'; err.classList.remove('hidden'); return; }
                 const btn = document.getElementById('dw-comment'); btn.disabled = true;
                 try {
-                    await api('/api/tasks/' + t.id + '/comments', { method: 'POST', body: JSON.stringify({ body: text }) });
+                    await api('/api/tasks/' + t.id + '/comments', { method: 'POST', body: JSON.stringify({ body: text, mentions: [...mentions.keys()] }) });
                     try { DRAWER.task = (await api('/api/tasks/' + t.id)).task; } catch (e) {}
                     renderDrawer();
                 } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); btn.disabled = false; }
             };
             loadTaskComments(t.id);
+        }
+
+        // Highlight @Name tokens that match a real teammate on the task.
+        function highlightMentions(escapedBody, memberNames) {
+            let out = escapedBody;
+            memberNames.forEach(name => {
+                const safe = esc(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                out = out.replace(new RegExp('@' + safe, 'g'), `<span class="cmt-mention">@${esc(name)}</span>`);
+            });
+            return out;
         }
 
         async function loadTaskComments(taskId) {
@@ -1269,6 +1332,7 @@
             let comments = [];
             try { comments = (await api('/api/tasks/' + taskId + '/comments')).comments; }
             catch (e) { box.innerHTML = `<div class="cmt-empty">${esc(e.message)}</div>`; return; }
+            const memberNames = (await drawerMembers()).map(m => m.name);
             const canClear = !!DRAWER.ctx.canManageTask && comments.length;
             box.innerHTML = (canClear ? `<div class="cmt-head"><span class="muted">${comments.length} comment${comments.length == 1 ? '' : 's'}</span>
                     <button class="btn btn-danger" id="cmt-clear" style="padding:5px 10px;font-size:11.5px;">Clear</button></div>` : '')
@@ -1279,7 +1343,7 @@
                     <div class="cmt-main">
                         <div class="cmt-top"><span class="cmt-author">${esc(c.author || 'Someone')}</span>
                             <span class="cmt-when">${new Date(c.created_at).toLocaleString()}</span></div>
-                        <div class="cmt-body">${esc(c.body)}</div>
+                        <div class="cmt-body">${highlightMentions(esc(c.body), memberNames)}</div>
                     </div>
                 </div>`).join('') + '</div>');
             const clearBtn = document.getElementById('cmt-clear');
@@ -1761,17 +1825,37 @@
             typeSel.onchange = () => document.getElementById('lv-end-wrap').classList.toggle('hidden', typeSel.value !== 'period');
             document.getElementById('lv-end-wrap').classList.toggle('hidden', typeSel.value !== 'period');
             document.getElementById('lv-submit').onclick = submitLeave;
+            // Populate the HR chooser with every active HR-role person.
+            const hrSel = document.getElementById('lv-hr');
+            const hrs = EMPLOYEES.filter(e => e.access_role === 'hr' && e.is_active !== false);
+            hrSel.innerHTML = hrs.length
+                ? '<option value="">Choose your HR…</option>' + hrs.map(h => `<option value="${h.id}">${esc(h.name)}</option>`).join('')
+                : '<option value="">No HR available — ask an admin</option>';
             loadMyLeaves();
-            // HR / admin get the full history with filters
+
+            // The history / team panel is shown to admins, HR and managers, each
+            // scoped by the backend (admin: all; HR: submitted to them; manager:
+            // their team). Department/user filters are for admins only.
             const adminBox = document.getElementById('lv-admin');
-            adminBox.classList.toggle('hidden', !canSeeStipend());   // canSeeStipend == admin||hr
-            if (canSeeStipend()) {
-                const dept = document.getElementById('lv-dept');
-                dept.innerHTML = '<option value="all">All Departments</option>' + allDepartments().map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
-                const user = document.getElementById('lv-user');
-                user.innerHTML = '<option value="all">All Users</option>' + EMPLOYEES.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('');
-                dept.onchange = loadLeaveHistory;
-                user.onchange = loadLeaveHistory;
+            const canSeeOthers = isAdmin() || isHR() || (CURRENT_USER && CURRENT_USER.accessRole === 'manager');
+            adminBox.classList.toggle('hidden', !canSeeOthers);
+            if (canSeeOthers) {
+                const titleEl = adminBox.querySelector('.section-title');
+                const filterWrap = document.getElementById('lv-dept').parentElement;
+                if (isAdmin()) {
+                    titleEl.textContent = 'Leave history';
+                    filterWrap.classList.remove('hidden');
+                    const dept = document.getElementById('lv-dept');
+                    dept.innerHTML = '<option value="all">All Departments</option>' + allDepartments().map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+                    const user = document.getElementById('lv-user');
+                    user.innerHTML = '<option value="all">All Users</option>' + EMPLOYEES.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('');
+                    dept.onchange = loadLeaveHistory;
+                    user.onchange = loadLeaveHistory;
+                } else {
+                    // HR / manager: no cross-directory filters, just their scope.
+                    titleEl.textContent = isHR() ? 'Leaves submitted to you' : 'Your team on leave';
+                    filterWrap.classList.add('hidden');
+                }
                 loadLeaveHistory();
             }
         }
@@ -1783,18 +1867,20 @@
             const start = document.getElementById('lv-start').value;
             const end = type === 'period' ? document.getElementById('lv-end').value : start;
             const reason = document.getElementById('lv-reason').value.trim();
+            const hrId = document.getElementById('lv-hr').value;
             if (!start) { err.textContent = 'Pick a date.'; err.classList.remove('hidden'); return; }
             if (type === 'period' && !end) { err.textContent = 'Pick an end date.'; err.classList.remove('hidden'); return; }
             if (!reason) { err.textContent = 'Give a reason for your leave.'; err.classList.remove('hidden'); return; }
+            if (!hrId) { err.textContent = 'Choose which HR to submit to.'; err.classList.remove('hidden'); return; }
             const btn = document.getElementById('lv-submit'); btn.disabled = true; btn.textContent = 'Submitting…';
             try {
-                await api('/api/leaves', { method: 'POST', body: JSON.stringify({ startDate: start, endDate: end, reason }) });
+                await api('/api/leaves', { method: 'POST', body: JSON.stringify({ startDate: start, endDate: end, reason, hrId: Number(hrId) }) });
                 document.getElementById('lv-reason').value = '';
+                document.getElementById('lv-hr').value = '';
                 ok.classList.remove('hidden');
                 loadMyLeaves();
-                if (canSeeStipend()) loadLeaveHistory();
             } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); }
-            finally { btn.disabled = false; btn.textContent = 'Submit to HR'; }
+            finally { btn.disabled = false; btn.textContent = 'Submit leave'; }
         }
 
         async function loadMyLeaves() {
@@ -1807,6 +1893,7 @@
                 <div class="lv-row">
                     <div class="lv-dates">${fmtRange(l.start_date, l.end_date)}</div>
                     <div class="lv-reason">${esc(l.reason)}</div>
+                    ${l.hr_name ? `<div class="lv-reason muted" style="margin-top:2px;">Submitted to ${esc(l.hr_name)}</div>` : ''}
                 </div>`).join('');
         }
 
@@ -1820,15 +1907,16 @@
             let leaves = [];
             try { leaves = (await api('/api/leaves' + (qs.length ? '?' + qs.join('&') : ''))).leaves; }
             catch (e) { box.innerHTML = `<div class="no-entries">${esc(e.message)}</div>`; return; }
-            if (!leaves.length) { box.innerHTML = '<div class="no-entries">No leave records match this filter.</div>'; return; }
+            if (!leaves.length) { box.innerHTML = '<div class="no-entries">No leave records to show.</div>'; return; }
             box.innerHTML = `<div class="ptable"><div class="pt-scroll"><table>
-                <thead><tr><th>Employee</th><th>Department</th><th>Dates</th><th>Reason</th><th>Filed</th></tr></thead>
+                <thead><tr><th>Employee</th><th>Department</th><th>Dates</th><th>Reason</th><th>Submitted to</th><th>Filed</th></tr></thead>
                 <tbody>${leaves.map(l => `
                     <tr>
                         <td><div class="pt-owner"><span class="avatar">${initials(l.employee_name)}</span>${esc(l.employee_name)}</div></td>
                         <td class="muted">${esc(l.department)}</td>
                         <td>${fmtRange(l.start_date, l.end_date)}</td>
                         <td>${esc(l.reason)}</td>
+                        <td class="muted">${l.hr_name ? esc(l.hr_name) : '—'}</td>
                         <td class="muted">${new Date(l.created_at).toLocaleDateString()}</td>
                     </tr>`).join('')}
                 </tbody></table></div></div>`;

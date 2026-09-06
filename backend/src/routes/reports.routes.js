@@ -7,7 +7,7 @@ const router = express.Router();
 
 // GET /api/reports/employees?department=Marketing — manager/admin only.
 // Returns every employee with their current engagement score for the sidebar list.
-router.get('/employees', requireAuth, requireRole('manager', 'admin', 'hr'), async (req, res) => {
+router.get('/employees', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
   const { department, from, to } = req.query;
   const useRange = !!(from && to);
   const params = [];
@@ -51,7 +51,7 @@ router.get('/employees', requireAuth, requireRole('manager', 'admin', 'hr'), asy
 });
 
 // GET /api/reports/employees/:id?from=&to= — manager/admin only. Full history + stats.
-router.get('/employees/:id', requireAuth, requireRole('manager', 'admin', 'hr'), async (req, res) => {
+router.get('/employees/:id', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
   const { id } = req.params;
   const { from, to } = req.query;
 
@@ -111,7 +111,7 @@ router.delete('/employees/:id/history', requireAuth, requireRole('admin'), async
 
 // GET /api/reports/employees/:id/projects — the projects this employee is a
 // member of, with how many of their tasks are done. (manager/admin)
-router.get('/employees/:id/projects', requireAuth, requireRole('manager', 'admin', 'hr'), async (req, res) => {
+router.get('/employees/:id/projects', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
   const { id } = req.params;
   const { rows } = await db.query(
     `SELECT p.id, p.name, p.status, p.department, p.priority,
@@ -129,7 +129,7 @@ router.get('/employees/:id/projects', requireAuth, requireRole('manager', 'admin
 
 // GET /api/reports/employees/:id/projects/:pid/tasks — this employee's tasks in
 // one project, each with its completion state and its work-update comments.
-router.get('/employees/:id/projects/:pid/tasks', requireAuth, requireRole('manager', 'admin', 'hr'), async (req, res) => {
+router.get('/employees/:id/projects/:pid/tasks', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
   const { id, pid } = req.params;
   const { rows: tasks } = await db.query(
     `SELECT t.id, t.title, t.status, t.completion, t.priority, t.task_date
@@ -156,7 +156,7 @@ router.get('/employees/:id/projects/:pid/tasks', requireAuth, requireRole('manag
 // GET /api/reports/employees/:id/calendar?from=&to= — for the report calendar:
 // the days this employee was on leave and the days they filed a work report,
 // within the given range. (manager/admin/hr)
-router.get('/employees/:id/calendar', requireAuth, requireRole('manager', 'admin', 'hr'), async (req, res) => {
+router.get('/employees/:id/calendar', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
   const { id } = req.params;
   const { from, to } = req.query;
   if (!from || !to) return res.status(400).json({ error: 'from and to dates are required.' });
@@ -183,7 +183,7 @@ router.get('/employees/:id/calendar', requireAuth, requireRole('manager', 'admin
 
 // GET /api/reports/employees/:id/daily?from=&to= — a daily rating (0-100) for
 // each day in the range, based on that day's work update. (manager/admin/hr)
-router.get('/employees/:id/daily', requireAuth, requireRole('manager', 'admin', 'hr'), async (req, res) => {
+router.get('/employees/:id/daily', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
   const { id, } = req.params;
   const { from, to } = req.query;
   if (!from || !to) return res.status(400).json({ error: 'from and to dates are required.' });
