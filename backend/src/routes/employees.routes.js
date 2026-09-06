@@ -6,6 +6,17 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Shared onboarding password for new accounts and admin-triggered resets, read
+// from the DEFAULT_PASSWORD environment variable so the whole team can be given
+// one common credential instead of a unique password each. It is paired with
+// must_reset_pw = true everywhere it's used, so each person is still forced to
+// set their own password on first login. When the env var is not configured we
+// fall back to a per-account random string (the original behaviour), so nothing
+// breaks and no credential is ever hardcoded in source.
+function onboardingPassword() {
+  return process.env.DEFAULT_PASSWORD || crypto.randomBytes(9).toString('base64url');
+}
+
 // GET /api/employees — directory (id, name, dept, role) for the "select employee"
 // UI element. Available to any authenticated user (needed to render dropdowns),
 // but never returns password hashes or emails to non-admins.
@@ -18,8 +29,9 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // POST /api/employees — higher officials (manager/admin) create a new account.
-// Generates a random temporary password and returns it ONCE so it can be shared
-// out-of-band; it is never stored or logged in plaintext. Guardrail: only an
+// The account starts with the shared onboarding password (DEFAULT_PASSWORD) and
+// must_reset_pw = true, so the whole team can be handed one common credential
+// and each person is forced to set their own on first login. Guardrail: only an
 // admin may grant a manager/admin access role — a manager can only add
 // ordinary (intern/employee) accounts, so they can't mint new admins.
 router.post('/', requireAuth, requireRole('manager', 'admin'), async (req, res) => {
@@ -30,7 +42,7 @@ router.post('/', requireAuth, requireRole('manager', 'admin'), async (req, res) 
   let role = ['employee', 'manager', 'admin', 'hr'].includes(accessRole) ? accessRole : 'employee';
   if (req.user.accessRole !== 'admin') role = 'employee';
 
-  const tempPassword = crypto.randomBytes(9).toString('base64url'); // 12-char random string
+  const tempPassword = onboardingPassword(); // shared onboarding password, changed on first login
   const hash = await bcrypt.hash(tempPassword, 12);
 
   try {
@@ -59,7 +71,7 @@ router.post('/:id/reset-password', requireAuth, requireRole('manager', 'admin'),
     return res.status(403).json({ error: 'Only an admin can reset a manager or admin account.' });
   }
 
-  const tempPassword = crypto.randomBytes(9).toString('base64url');
+  const tempPassword = onboardingPassword(); // same shared onboarding password
   const hash = await bcrypt.hash(tempPassword, 12);
   await db.query(
     'UPDATE employees SET password_hash = $1, must_reset_pw = true, failed_attempts = 0, locked_until = NULL WHERE id = $2',

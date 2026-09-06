@@ -1574,7 +1574,7 @@
             openModal(`
                 <div class="modal-head"><h3 class="serif">${esc(title)}</h3><button class="x" onclick="closeModal()">✕</button></div>
                 <div class="modal-body">
-                    <p style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">Share this temporary password securely. ${esc(name)} will be asked to set their own on first login. It is shown once and cannot be retrieved later.</p>
+                    <p style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">This is the shared onboarding password — the same for every account. ${esc(name)} logs in with it and is then asked to set their own password before continuing.</p>
                     ${email ? `<div class="readonly-box" style="margin-bottom:10px;">${esc(email)}</div>` : ''}
                     <div style="display:flex;gap:8px;align-items:center;">
                         <div class="readonly-box mono" id="cred-pw" style="flex:1;font-size:15px;letter-spacing:.5px;">${esc(tempPassword)}</div>
