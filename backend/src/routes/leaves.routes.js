@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const { sendPushToEmployees } = require('../utils/push');
 
 const router = express.Router();
@@ -16,11 +16,12 @@ router.post('/', requireAuth, wrap(async (req, res) => {
   if (!reason || !reason.trim()) return res.status(400).json({ error: 'Please give a reason for your leave.' });
   if (endDate < startDate) return res.status(400).json({ error: 'The end date cannot be before the start date.' });
 
-  // Validate the chosen HR (must be an active HR-role account).
+  // Validate the chosen HR: anyone on the HR team — either the HR access role
+  // or someone in the HR department (e.g. an HR intern) — who is active.
   let hr = null;
   if (hrId) {
     const { rows } = await db.query(
-      "SELECT id, name FROM employees WHERE id = $1 AND access_role = 'hr' AND is_active = true",
+      "SELECT id, name FROM employees WHERE id = $1 AND is_active = true AND (access_role = 'hr' OR lower(department) = 'hr')",
       [Number(hrId)]
     );
     if (!rows[0]) return res.status(400).json({ error: 'Please choose a valid HR to submit to.' });
@@ -64,35 +65,36 @@ router.get('/mine', requireAuth, wrap(async (req, res) => {
   res.json({ leaves: rows });
 }));
 
-// GET /api/leaves — role-scoped leave visibility:
-//   admin   → every leave (with department / employee filters)
-//   hr      → leaves that were submitted to them
-//   manager → leaves of people who are members of a project they manage
-// Employees use /mine instead.
-router.get('/', requireAuth, requireRole('admin', 'hr', 'manager'), wrap(async (req, res) => {
+// GET /api/leaves — leave visibility by who's asking:
+//   admin              → every leave (with department / employee filters)
+//   anyone else        → leaves submitted TO them (they were chosen as the HR),
+//                        AND, if they're a manager, their project team's leaves.
+// So any HR-team member (even an HR intern without the HR access role) can see
+// the leaves people sent them. Employees who were never chosen simply see none.
+router.get('/', requireAuth, wrap(async (req, res) => {
   const role = req.user.accessRole;
   const clauses = [];
   const params = [];
 
-  if (role === 'hr') {
-    params.push(req.user.id);
-    clauses.push(`l.hr_id = $${params.length}`);
-  } else if (role === 'manager') {
-    params.push(req.user.id);
-    clauses.push(`l.employee_id IN (
-      SELECT pm.employee_id FROM project_members pm
-        JOIN projects p ON p.id = pm.project_id
-       WHERE p.manager_id = $${params.length}
-    )`);
+  if (role !== 'admin') {
+    const ors = [];
+    params.push(req.user.id); ors.push(`l.hr_id = $${params.length}`);          // submitted to me
+    if (role === 'manager') {
+      params.push(req.user.id);
+      ors.push(`l.employee_id IN (
+        SELECT pm.employee_id FROM project_members pm
+          JOIN projects p ON p.id = pm.project_id
+         WHERE p.manager_id = $${params.length})`);                              // my team
+    }
+    clauses.push(`(${ors.join(' OR ')})`);
   }
-  // admin: no base clause (sees all)
 
-  // Optional filters (admins get the full set; HR/managers filter within scope).
-  if (req.query.department && req.query.department !== 'all') {
+  // Optional filters (admins get the full set and can filter it).
+  if (role === 'admin' && req.query.department && req.query.department !== 'all') {
     params.push(req.query.department);
     clauses.push(`e.department = $${params.length}`);
   }
-  if (req.query.employeeId) {
+  if (role === 'admin' && req.query.employeeId) {
     params.push(Number(req.query.employeeId));
     clauses.push(`l.employee_id = $${params.length}`);
   }

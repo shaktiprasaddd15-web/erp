@@ -893,6 +893,16 @@
         }
         function canManageUsers() { return CURRENT_USER && ['manager', 'admin'].includes(CURRENT_USER.accessRole); }
         function isHR() { return CURRENT_USER && CURRENT_USER.accessRole === 'hr'; }
+        // "HR team" = the HR access role OR anyone in the HR department (e.g. an HR
+        // intern). Used to list who a leave can be sent to, and who sees leaves
+        // sent to them. Works for both directory rows (access_role/department) and
+        // the logged-in user (accessRole/department).
+        function isHRPerson(e) {
+            if (!e) return false;
+            const role = e.access_role || e.accessRole;
+            const dept = String(e.department || '').trim().toLowerCase();
+            return role === 'hr' || dept === 'hr';
+        }
         // HR and admin see the stipend field and the full leave history.
         function canSeeStipend() { return CURRENT_USER && ['admin', 'hr'].includes(CURRENT_USER.accessRole); }
         // Who can open the people-ops areas (Users / Performance): admins and HR
@@ -1825,9 +1835,10 @@
             typeSel.onchange = () => document.getElementById('lv-end-wrap').classList.toggle('hidden', typeSel.value !== 'period');
             document.getElementById('lv-end-wrap').classList.toggle('hidden', typeSel.value !== 'period');
             document.getElementById('lv-submit').onclick = submitLeave;
-            // Populate the HR chooser with every active HR-role person.
+            // Populate the HR chooser with the whole HR team — anyone with the HR
+            // access role OR in the HR department (e.g. HR interns) — who's active.
             const hrSel = document.getElementById('lv-hr');
-            const hrs = EMPLOYEES.filter(e => e.access_role === 'hr' && e.is_active !== false);
+            const hrs = EMPLOYEES.filter(e => isHRPerson(e) && e.is_active !== false);
             hrSel.innerHTML = hrs.length
                 ? '<option value="">Choose your HR…</option>' + hrs.map(h => `<option value="${h.id}">${esc(h.name)}</option>`).join('')
                 : '<option value="">No HR available — ask an admin</option>';
@@ -1837,7 +1848,9 @@
             // scoped by the backend (admin: all; HR: submitted to them; manager:
             // their team). Department/user filters are for admins only.
             const adminBox = document.getElementById('lv-admin');
-            const canSeeOthers = isAdmin() || isHR() || (CURRENT_USER && CURRENT_USER.accessRole === 'manager');
+            const isManager = CURRENT_USER && CURRENT_USER.accessRole === 'manager';
+            const meHR = isHRPerson(CURRENT_USER);
+            const canSeeOthers = isAdmin() || isManager || meHR;
             adminBox.classList.toggle('hidden', !canSeeOthers);
             if (canSeeOthers) {
                 const titleEl = adminBox.querySelector('.section-title');
@@ -1852,8 +1865,9 @@
                     dept.onchange = loadLeaveHistory;
                     user.onchange = loadLeaveHistory;
                 } else {
-                    // HR / manager: no cross-directory filters, just their scope.
-                    titleEl.textContent = isHR() ? 'Leaves submitted to you' : 'Your team on leave';
+                    // HR team / manager: no cross-directory filters, just their scope.
+                    // (A manager who is also on the HR team sees both, per the API.)
+                    titleEl.textContent = meHR ? 'Leaves submitted to you' : 'Your team on leave';
                     filterWrap.classList.add('hidden');
                 }
                 loadLeaveHistory();
