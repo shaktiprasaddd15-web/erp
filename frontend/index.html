@@ -1077,13 +1077,23 @@
                         <div class="mt-sub">${t.project_name ? esc(t.project_name) : 'General'}${t.task_date ? ' · due ' + fmtDay(t.task_date) : ''}${t.my_submissions ? ' · ' + t.my_submissions + ' update' + (t.my_submissions == 1 ? '' : 's') : ''}${t.assigned_by_name ? ' · from ' + esc(t.assigned_by_name) : ''}</div>
                     </div>
                     <div class="mt-right">
+                        <button class="btn btn-primary mt-wu" data-wu="${t.id}" style="padding:6px 11px;font-size:12px;">Work update${t.update_count ? ' · ' + t.update_count : ''}</button>
                         <span class="pill ${t.status === 'done' ? 'open' : 'paused'}" style="${t.status === 'done' ? 'background:var(--green-soft);color:var(--green)' : ''}">${t.status === 'done' ? 'done' : 'open'}</span>
                     </div>
                 </div>`).join('');
             box.querySelectorAll('.mt-row[data-task]').forEach(row => {
                 row.onclick = () => {
                     const t = tasks.find(x => x.id == row.dataset.task);
-                    openTaskDrawer(t, { projectName: t.project_name, canManageTask: false, onChange: loadMyTasks });
+                    openTaskDrawer(t, { projectName: t.project_name, canManageTask: false, fromMyTasks: true, onChange: loadMyTasks });
+                };
+            });
+            // Work update button on each row — opens the update space directly,
+            // without opening the task panel.
+            box.querySelectorAll('.mt-wu[data-wu]').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const t = tasks.find(x => x.id == btn.dataset.wu);
+                    openWorkUpdate(t, { canManage: false, onChange: loadMyTasks });
                 };
             });
         }
@@ -1140,7 +1150,7 @@
                         <div class="dw-proj">${projName ? esc(projName) : ''}${t.assigned_by_name ? ' · by ' + esc(t.assigned_by_name) : ''}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-                        <button class="btn btn-primary" id="dw-workupdate" style="padding:7px 12px;font-size:12.5px;">Work Update${t.update_count ? ' · ' + t.update_count : ''}</button>
+                        ${DRAWER.ctx.fromMyTasks ? '' : `<button class="btn btn-primary" id="dw-workupdate" style="padding:7px 12px;font-size:12.5px;">Work Update${t.update_count ? ' · ' + t.update_count : ''}</button>`}
                         <button class="x" id="dw-close">✕</button>
                     </div>
                 </div>
@@ -1168,7 +1178,8 @@
                     <div id="dw-tabbody"></div>
                 </div>`;
             document.getElementById('dw-close').onclick = closeDrawer;
-            document.getElementById('dw-workupdate').onclick = () => openWorkUpdate(DRAWER.task);
+            const dwWu = document.getElementById('dw-workupdate');
+            if (dwWu) dwWu.onclick = () => openWorkUpdate(DRAWER.task, { canManage: DRAWER.ctx.canManageTask, onChange: DRAWER.ctx.onChange });
             wireFieldEditors();
             drawerEl.querySelectorAll('.dw-tab').forEach(b => b.onclick = () => {
                 DRAWER.tab = b.dataset.tab;
@@ -1268,8 +1279,10 @@
         }
 
         // ── Work Update space (the only task-update; feeds the personal report) ──
-        async function openWorkUpdate(t) {
-            const canClear = !!DRAWER.ctx.canManageTask;
+        // Can be opened from the task drawer or straight from a task row (e.g. the
+        // My Tasks card). opts: { canManage, onChange } — no reliance on drawer state.
+        async function openWorkUpdate(t, opts = {}) {
+            const canClear = !!opts.canManage;
             openModal(`<div class="modal-head"><div><h3 class="serif">Work update</h3>
                     <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;">${esc(t.title)}</div></div>
                     <button class="x" onclick="closeModal()">✕</button></div>
@@ -1284,7 +1297,11 @@
                         ${canClear ? '<button class="btn btn-danger" id="wu-clear" style="padding:5px 10px;font-size:11.5px;">Clear history</button>' : ''}</div>
                     <div id="wu-list"><div class="cmt-empty">Loading…</div></div>
                 </div>`, true);
-            const refreshTask = async () => { try { DRAWER.task = (await api('/api/tasks/' + t.id)).task; } catch (e) {} if (DRAWER.ctx.onChange) DRAWER.ctx.onChange(); if (drawerBackdrop.classList.contains('open')) renderDrawer(); };
+            const refreshTask = async () => {
+                try { const fresh = (await api('/api/tasks/' + t.id)).task; if (DRAWER.task && DRAWER.task.id === t.id) DRAWER.task = fresh; } catch (e) {}
+                if (opts.onChange) opts.onChange();
+                if (drawerBackdrop.classList.contains('open') && DRAWER.task && DRAWER.task.id === t.id) renderDrawer();
+            };
             document.getElementById('wu-post').onclick = async () => {
                 const err = document.getElementById('wu-err'); err.classList.add('hidden');
                 const bodyText = document.getElementById('wu-body').value.trim();
