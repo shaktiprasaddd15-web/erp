@@ -48,7 +48,7 @@ router.get('/employees/:id', requireAuth, requireRole('manager', 'admin', 'hr'),
   const { from, to } = req.query;
 
   const { rows: empRows } = await db.query(
-    'SELECT id, employee_code, name, department, job_title, email, access_role FROM employees WHERE id = $1',
+    'SELECT id, employee_code, name, department, job_title, email, access_role, locked_until, failed_attempts FROM employees WHERE id = $1',
     [id]
   );
   const employee = empRows[0];

@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const db = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { loginLimiter } = require('./auth.routes');
 
 const router = express.Router();
 
@@ -78,6 +79,34 @@ router.post('/:id/reset-password', requireAuth, requireRole('manager', 'admin'),
     [hash, req.params.id]
   );
   res.json({ temporaryPassword: tempPassword });
+});
+
+// POST /api/employees/:id/unlock — admin only: clear a login block caused by
+// too many failed password attempts, WITHOUT changing the password (the person
+// keeps their current one and can log in straight away). Clears both the
+// database lockout and the in-memory login rate-limit counter for the
+// identifiers they might have typed (email / name / employee code).
+router.post('/:id/unlock', requireAuth, requireRole('admin'), async (req, res) => {
+  const { rows } = await db.query(
+    'SELECT id, name, email, employee_code FROM employees WHERE id = $1',
+    [req.params.id]
+  );
+  const emp = rows[0];
+  if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+  await db.query('UPDATE employees SET failed_attempts = 0, locked_until = NULL WHERE id = $1', [emp.id]);
+
+  if (loginLimiter && loginLimiter.resetKey) {
+    [emp.email, emp.name, emp.employee_code].forEach((v) => {
+      if (v) loginLimiter.resetKey('acct:' + String(v).toLowerCase().trim());
+    });
+  }
+
+  await db.query(
+    'INSERT INTO audit_log (actor_employee_id, action, target, ip_address) VALUES ($1,$2,$3,$4)',
+    [req.user.id, 'login_unblocked', emp.employee_code || String(emp.id), req.ip]
+  );
+  res.json({ ok: true });
 });
 
 // POST /api/employees/reset-all-passwords — admin only: reset EVERY other

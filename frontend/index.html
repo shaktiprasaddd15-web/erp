@@ -1616,6 +1616,16 @@
             };
         }
 
+        // Admin only — clear a login block (from too many failed attempts) so the
+        // account can sign in again with its EXISTING password (no reset needed).
+        async function unblockUser(emp) {
+            try {
+                await api('/api/employees/' + emp.id + '/unlock', { method: 'POST' });
+                alert(emp.name + ' can log in again with their current password.');
+                renderUserDetail(emp.id);
+            } catch (e) { alert(e.message); }
+        }
+
         async function resetEmployeePassword(emp) {
             if (!confirm('Reset password for ' + emp.name + '? Their current password stops working immediately.')) return;
             try {
@@ -2660,6 +2670,11 @@
             const email = data.employee.email || dir.email || '—';
             const canReset = canManageUsers() && (isAdmin() || emp.access_role === 'employee');
             const canDelete = isAdmin() && emp.id !== CURRENT_USER.id;
+            // Login lockout state (too many failed password attempts). Admins can
+            // clear it so an important account can log back in without a reset.
+            const lockedUntil = emp.locked_until ? new Date(emp.locked_until) : null;
+            const isLocked = !!(lockedUntil && lockedUntil > new Date());
+            const canUnblock = isAdmin() && (isLocked || (emp.failed_attempts || 0) > 0);
             panel.innerHTML = `
                 <div class="panel-head">
                     <div>
@@ -2669,6 +2684,7 @@
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
                         <button class="btn btn-ghost" id="cal-btn">Calendar</button>
                         ${isAdmin() ? '<button class="btn btn-ghost" id="edit-user">Edit</button>' : ''}
+                        ${canUnblock ? `<button class="btn ${isLocked ? 'btn-danger' : 'btn-ghost'}" id="unblock-user">Unblock login</button>` : ''}
                         ${canReset ? '<button class="btn btn-ghost" id="reset-pw">Reset password</button>' : ''}
                         ${canDelete ? '<button class="btn btn-danger" id="delete-user">Delete user</button>' : ''}
                         <div class="panel-score">
@@ -2678,6 +2694,7 @@
                     </div>
                 </div>
                 <div class="u-meta">
+                    ${isLocked ? `<span style="color:var(--red);font-weight:600;">⚠ Login blocked (too many failed attempts) until ${lockedUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>` : ''}
                     <span><b>Email</b> ${esc(email)}</span>
                     <span><b>Days logged (30d)</b> ${stats.submittedDays}/${stats.windowDays}</span>
                     <span><b>Avg points/entry</b> ${stats.avgBulletsPerEntry}</span>
@@ -2690,6 +2707,9 @@
                 <div id="emp-projects"><div class="no-entries">Loading projects…</div></div>`;
             if (canReset) {
                 document.getElementById('reset-pw').onclick = () => resetEmployeePassword({ id: emp.id, name: emp.name, email });
+            }
+            if (canUnblock) {
+                document.getElementById('unblock-user').onclick = () => unblockUser(emp);
             }
             if (canDelete) {
                 document.getElementById('delete-user').onclick = () => openDeleteUserModal(emp);

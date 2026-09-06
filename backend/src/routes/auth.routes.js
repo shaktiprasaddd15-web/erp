@@ -149,3 +149,7 @@ router.get('/me', requireAuth, async (req, res) => {
 });
 
 module.exports = router;
+// Exposed so the admin "unblock login" action can also clear a person's
+// in-memory rate-limit counter (keyed by "acct:<login identifier>"), not just
+// the database lockout.
+module.exports.loginLimiter = loginLimiter;
