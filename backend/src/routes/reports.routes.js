@@ -8,7 +8,8 @@ const router = express.Router();
 // GET /api/reports/employees?department=Marketing — manager/admin only.
 // Returns every employee with their current engagement score for the sidebar list.
 router.get('/employees', requireAuth, requireRole('manager', 'admin', 'hr'), async (req, res) => {
-  const { department } = req.query;
+  const { department, from, to } = req.query;
+  const useRange = !!(from && to);
   const params = [];
   let where = '';
   if (department && department !== 'all') {
@@ -24,18 +25,25 @@ router.get('/employees', requireAuth, requireRole('manager', 'admin', 'hr'), asy
     params
   );
 
-  const { rows: entries } = await db.query(
-    `SELECT employee_id, entry_date, bullets, attachment_note, attachment_url FROM work_entries
-     WHERE entry_date >= (CURRENT_DATE - INTERVAL '30 days')`
-  );
+  const { rows: entries } = useRange
+    ? await db.query(
+        `SELECT employee_id, entry_date, bullets, attachment_note, attachment_url FROM work_entries
+         WHERE entry_date BETWEEN $1 AND $2`,
+        [from, to]
+      )
+    : await db.query(
+        `SELECT employee_id, entry_date, bullets, attachment_note, attachment_url FROM work_entries
+         WHERE entry_date >= (CURRENT_DATE - INTERVAL '30 days')`
+      );
 
   const byEmployee = {};
   entries.forEach((e) => {
     (byEmployee[e.employee_id] ||= []).push(e);
   });
 
+  const range = useRange ? { from, to } : null;
   const result = employees.map((emp) => {
-    const stats = computeStats(byEmployee[emp.id] || []);
+    const stats = computeStats(byEmployee[emp.id] || [], 30, range);
     return { ...emp, score: stats.score, label: scoreLabel(stats.score) };
   });
 

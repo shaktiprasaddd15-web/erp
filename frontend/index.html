@@ -559,6 +559,7 @@
         .pg-range { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; justify-content: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
         .pg-range label { display: flex; flex-direction: column; gap: 3px; font-size: 10.5px; color: var(--ink-soft); font-weight: 600; }
         .pg-range input[type="date"] { border: 1px solid var(--border); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 12px; }
+        .perf-date { border: 1px solid var(--border); background: var(--input-bg, var(--bg)); color: var(--ink); border-radius: 8px; padding: 7px 8px; font: inherit; font-size: 12.5px; }
 
         /* ── user detail: compact meta + projects/tasks/updates drill-down ── */
         .u-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 12px 14px; margin-bottom: 18px;
@@ -768,18 +769,31 @@
                 <div class="page hidden" id="view-perf">
                     <div class="toolbar">
                         <div class="section-title">Engagement scores by employee</div>
-                        <div class="filter">
-                            <label>Department</label>
-                            <select id="perf-dept-filter"><option value="all">All Departments</option></select>
+                        <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
+                            <div class="filter">
+                                <label>Period</label>
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <input type="date" id="perf-from" class="perf-date" title="From">
+                                    <span style="color:var(--ink-soft);">–</span>
+                                    <input type="date" id="perf-to" class="perf-date" title="To">
+                                    <button class="pp-team-btn" id="perf-apply">Apply</button>
+                                    <button class="pp-team-btn" id="perf-reset" title="Back to the last 30 days">Reset</button>
+                                </div>
+                            </div>
+                            <div class="filter">
+                                <label>Department</label>
+                                <select id="perf-dept-filter"><option value="all">All Departments</option></select>
+                            </div>
                         </div>
                     </div>
+                    <div id="perf-window-note" style="font-size:12px;color:var(--ink-soft);margin:2px 2px 10px;"></div>
                     <div class="perf-summary" id="perf-summary"></div>
                     <div class="perf-card" id="perf-chart"></div>
                     <div class="perf-legend">
                         <span><i class="dot" style="background:var(--green)"></i> Strong (75+)</span>
                         <span><i class="dot" style="background:var(--warn)"></i> Steady (50–74)</span>
                         <span><i class="dot" style="background:var(--red)"></i> Needs attention (&lt;50)</span>
-                        <span style="margin-left:auto;color:var(--ink-soft)">Score = consistency + detail + volume + evidence over the last 30 days</span>
+                        <span style="margin-left:auto;color:var(--ink-soft)">Score = consistency + detail + volume + evidence, over the selected period</span>
                     </div>
                 </div>
             </div>
@@ -1476,6 +1490,17 @@
         document.getElementById('users-dept-filter').onchange = loadUsers;
         document.getElementById('users-search').oninput = renderUsersList;
         document.getElementById('perf-dept-filter').onchange = loadPerformance;
+        document.getElementById('perf-apply').onclick = () => {
+            const f = document.getElementById('perf-from').value, t = document.getElementById('perf-to').value;
+            if ((f && !t) || (!f && t)) { alert('Pick both a From and a To date to set a period.'); return; }
+            if (f && t && f > t) { alert('The From date must be on or before the To date.'); return; }
+            loadPerformance();
+        };
+        document.getElementById('perf-reset').onclick = () => {
+            document.getElementById('perf-from').value = '';
+            document.getElementById('perf-to').value = '';
+            loadPerformance();
+        };
 
         // ── Projects page compound filter: Department / Priority / User ──
         let PF = { mode: 'department', dept: 'all', prio: 'high', userId: null, userName: '' };
@@ -2521,13 +2546,32 @@
         // ════════ PERFORMANCE (managers/admins) ════════
         async function loadPerformance() {
             const dept = document.getElementById('perf-dept-filter').value;
+            const todayISO = new Date().toISOString().slice(0, 10);
+            document.getElementById('perf-from').max = todayISO;
+            document.getElementById('perf-to').max = todayISO;
+            const from = document.getElementById('perf-from').value;
+            const to = document.getElementById('perf-to').value;
             const chart = document.getElementById('perf-chart');
             const summary = document.getElementById('perf-summary');
             chart.innerHTML = '<div class="empty-state">Loading…</div>';
             summary.innerHTML = '';
+            // Build the query. A date range is applied only when BOTH ends are set,
+            // so everyone is scored within the same window; otherwise the default
+            // trailing-30-day scoring is used.
+            const qs = [];
+            if (dept !== 'all') qs.push('department=' + encodeURIComponent(dept));
+            const useRange = from && to;
+            if (useRange) { qs.push('from=' + from); qs.push('to=' + to); }
+            const note = document.getElementById('perf-window-note');
+            if (note) {
+                const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                note.textContent = useRange
+                    ? `Everyone scored over ${fmt(from)} – ${fmt(to)}`
+                    : 'Everyone scored over the last 30 days (set a period to compare within a fixed window).';
+            }
             let employees;
             try {
-                ({ employees } = await api('/api/reports/employees' + (dept !== 'all' ? '?department=' + encodeURIComponent(dept) : '')));
+                ({ employees } = await api('/api/reports/employees' + (qs.length ? '?' + qs.join('&') : '')));
             } catch (e) { chart.innerHTML = `<div class="empty-state">${esc(e.message)}</div>`; return; }
             if (!employees.length) { chart.innerHTML = '<div class="empty-state">No employees to show.</div>'; return; }
 

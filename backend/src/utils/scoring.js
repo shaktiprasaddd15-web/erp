@@ -1,12 +1,22 @@
 // Same scoring formula as the original prototype:
 // score = 40% consistency + 30% detail (avg words/point) + 15% volume (points/entry) + 15% evidence
 
-function computeStats(entries, windowDays = 30) {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - windowDays);
-  const cutoffISO = cutoff.toISOString().slice(0, 10);
-
-  const windowEntries = entries.filter((e) => e.entry_date >= cutoffISO);
+// windowDays sizes the trailing window (default 30 days ending today). Pass an
+// explicit { from, to } range (ISO date strings) instead to score a fixed
+// period — used by the Performance page's date filter to compare everyone
+// within the same window.
+function computeStats(entries, windowDays = 30, range = null) {
+  let windowEntries;
+  if (range && range.from && range.to) {
+    windowEntries = entries.filter((e) => e.entry_date >= range.from && e.entry_date <= range.to);
+    const span = Math.round((new Date(range.to) - new Date(range.from)) / 86400000) + 1;
+    windowDays = Math.max(1, span);
+  } else {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - windowDays);
+    const cutoffISO = cutoff.toISOString().slice(0, 10);
+    windowEntries = entries.filter((e) => e.entry_date >= cutoffISO);
+  }
 
   const submittedDates = new Set(windowEntries.map((e) => e.entry_date));
   const consistencyRatio = Math.min(1, submittedDates.size / windowDays);
