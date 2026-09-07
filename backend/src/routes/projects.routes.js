@@ -61,6 +61,15 @@ router.get('/', requireAuth, wrap(async (req, res) => {
   if (req.query.mine === '1' || req.query.mine === 'true') {
     params.push(req.user.id);
     clauses.push(`p.id IN (SELECT project_id FROM project_members WHERE employee_id = $${params.length})`);
+  } else if (req.user.accessRole !== 'admin') {
+    // Only admins see the whole company board. A manager sees the projects they
+    // manage; anyone else sees the projects they belong to.
+    params.push(req.user.id);
+    if (req.user.accessRole === 'manager') {
+      clauses.push(`p.manager_id = $${params.length}`);
+    } else {
+      clauses.push(`p.id IN (SELECT project_id FROM project_members WHERE employee_id = $${params.length})`);
+    }
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
 
@@ -79,6 +88,11 @@ router.get('/stats', requireAuth, wrap(async (req, res) => {
   if (req.query.mine === '1' || req.query.mine === 'true') {
     params.push(req.user.id);
     where = 'WHERE id IN (SELECT project_id FROM project_members WHERE employee_id = $1)';
+  } else if (req.user.accessRole !== 'admin') {
+    params.push(req.user.id);
+    where = req.user.accessRole === 'manager'
+      ? 'WHERE manager_id = $1'
+      : 'WHERE id IN (SELECT project_id FROM project_members WHERE employee_id = $1)';
   }
   const { rows } = await db.query(
     `SELECT status, COUNT(*)::int AS count FROM projects ${where} GROUP BY status`,
@@ -94,8 +108,8 @@ router.get('/stats', requireAuth, wrap(async (req, res) => {
 router.get('/:id', requireAuth, wrap(async (req, res) => {
   const { rows } = await db.query(`${PROJECT_SELECT} WHERE p.id = $1`, [req.params.id]);
   if (!rows[0]) return res.status(404).json({ error: 'Project not found.' });
-  const priv = req.user.accessRole === 'manager' || req.user.accessRole === 'admin';
-  if (!priv) {
+  // Admins see any project; a manager only their own; others only ones they belong to.
+  if (req.user.accessRole !== 'admin' && rows[0].manager_id !== req.user.id) {
     const { rows: m } = await db.query('SELECT 1 FROM project_members WHERE project_id = $1 AND employee_id = $2', [req.params.id, req.user.id]);
     if (!m.length) return res.status(403).json({ error: 'You are not a member of this project.' });
   }
@@ -104,10 +118,9 @@ router.get('/:id', requireAuth, wrap(async (req, res) => {
 
 // GET /api/projects/:id/history — activity log (members + managers/admins).
 router.get('/:id/history', requireAuth, wrap(async (req, res) => {
-  const { rows: exists } = await db.query('SELECT 1 FROM projects WHERE id = $1', [req.params.id]);
+  const { rows: exists } = await db.query('SELECT manager_id FROM projects WHERE id = $1', [req.params.id]);
   if (!exists[0]) return res.status(404).json({ error: 'Project not found.' });
-  const priv = req.user.accessRole === 'manager' || req.user.accessRole === 'admin';
-  if (!priv) {
+  if (req.user.accessRole !== 'admin' && exists[0].manager_id !== req.user.id) {
     const { rows: m } = await db.query('SELECT 1 FROM project_members WHERE project_id = $1 AND employee_id = $2', [req.params.id, req.user.id]);
     if (!m.length) return res.status(403).json({ error: 'You are not a member of this project.' });
   }

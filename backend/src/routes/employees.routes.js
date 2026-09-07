@@ -152,6 +152,11 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
     if (!dept) return res.status(400).json({ error: 'Department cannot be empty.' });
     put('department', dept.slice(0, 100));
   }
+  if (b.jobTitle !== undefined) {
+    const title = String(b.jobTitle).trim();
+    if (!title) return res.status(400).json({ error: 'Designation cannot be empty.' });
+    put('job_title', title.slice(0, 120));
+  }
   if (b.accessRole !== undefined) {
     if (!['employee', 'manager', 'admin', 'hr'].includes(b.accessRole)) {
       return res.status(400).json({ error: 'Invalid access level.' });
@@ -167,7 +172,7 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   params.push(id);
   const { rows } = await db.query(
     `UPDATE employees SET ${sets.join(', ')}, updated_at = now() WHERE id = $${params.length}
-     RETURNING id, name, department, access_role`,
+     RETURNING id, name, department, job_title, access_role`,
     params
   );
   if (!rows[0]) return res.status(404).json({ error: 'Employee not found.' });

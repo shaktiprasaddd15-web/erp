@@ -117,10 +117,10 @@ router.get('/mine', requireAuth, wrap(async (req, res) => {
 router.get('/', requireAuth, wrap(async (req, res) => {
   const projectId = Number(req.query.projectId);
   if (!Number.isInteger(projectId)) return res.status(400).json({ error: 'projectId is required.' });
-  const priv = req.user.accessRole === 'manager' || req.user.accessRole === 'admin';
   const mgr = await projectManagerId(db, projectId);
   if (mgr == null) return res.status(404).json({ error: 'Project not found.' });
-  const seesAll = priv || mgr === req.user.id;
+  // Admins see every project's tasks; a manager only the projects they manage.
+  const seesAll = req.user.accessRole === 'admin' || mgr === req.user.id;
   if (!seesAll && !(await isMember(db, projectId, req.user.id))) {
     return res.status(403).json({ error: 'Not allowed.' });
   }

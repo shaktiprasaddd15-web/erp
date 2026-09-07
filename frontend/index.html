@@ -698,7 +698,7 @@
                 <!-- PROJECTS — all projects (admins / managers), Zoho-style list -->
                 <div class="page hidden" id="view-projects">
                     <div class="toolbar">
-                        <div class="section-title">All projects across the company</div>
+                        <div class="section-title" id="projects-section-title">All projects across the company</div>
                         <div class="filter" style="position:relative;">
                             <label>Filter</label>
                             <select id="pf-mode">
@@ -1022,7 +1022,11 @@
             if (view !== 'project') CURRENT_PROJECT = null;
             updateTopbarButton(view);
             if (view === 'home') loadHome();
-            if (view === 'projects') { renderProjectsFilterSecond(); loadProjectsList(); }
+            if (view === 'projects') {
+                document.getElementById('page-sub').textContent = isAdmin() ? 'Every project across the company' : 'Projects you manage';
+                document.getElementById('projects-section-title').textContent = isAdmin() ? 'All projects across the company' : 'Projects you manage';
+                renderProjectsFilterSecond(); loadProjectsList();
+            }
             if (view === 'mail') loadMail();
             if (view === 'settings') loadSettings();
             if (view === 'users') loadUsers();
@@ -2901,6 +2905,7 @@
                 <div class="modal-head"><h3 class="serif">Edit user</h3><button class="x" onclick="closeModal()">✕</button></div>
                 <div class="modal-body">
                     <div class="field"><label>Name</label><input type="text" id="eu-name" value="${esc(emp.name)}"></div>
+                    <div class="field"><label>Designation (job title)</label><input type="text" id="eu-title" value="${esc(emp.job_title || '')}" placeholder="e.g. Marketing Executive"></div>
                     <div class="field"><label>Department</label><input type="text" id="eu-dept" list="eu-deptlist" value="${esc(emp.department)}"><datalist id="eu-deptlist">${deptOpts}</datalist></div>
                     <div class="field"><label>Permanent access level</label>
                         <select id="eu-role" ${isSelf ? 'disabled' : ''}>${roles.map(([v, l]) => `<option value="${v}" ${v === emp.access_role ? 'selected' : ''}>${l}</option>`).join('')}</select>
@@ -2916,10 +2921,12 @@
                 const err = document.getElementById('eu-err'); err.classList.add('hidden');
                 const body = {
                     name: document.getElementById('eu-name').value.trim(),
+                    jobTitle: document.getElementById('eu-title').value.trim(),
                     department: document.getElementById('eu-dept').value.trim(),
                 };
                 if (!isSelf) body.accessRole = document.getElementById('eu-role').value;
                 if (body.name.length < 2) { err.textContent = 'Name must be at least 2 characters.'; err.classList.remove('hidden'); return; }
+                if (!body.jobTitle) { err.textContent = 'Designation cannot be empty.'; err.classList.remove('hidden'); return; }
                 if (!body.department) { err.textContent = 'Department cannot be empty.'; err.classList.remove('hidden'); return; }
                 const btn = document.getElementById('eu-save'); btn.disabled = true; btn.textContent = 'Saving…';
                 try {
