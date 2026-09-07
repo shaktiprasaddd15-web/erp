@@ -62,10 +62,9 @@ router.post('/', requireAuth, requireRole('manager', 'admin'), async (req, res) 
   }
 });
 
-// POST /api/employees/:id/reset-password — higher officials force-reset a
-// password. Guardrail: a manager may only reset ordinary (employee) accounts;
-// resetting another manager/admin requires admin.
-router.post('/:id/reset-password', requireAuth, requireRole('manager', 'admin'), async (req, res) => {
+// POST /api/employees/:id/reset-password — admin only. Managers can create
+// accounts but cannot edit or reset existing ones.
+router.post('/:id/reset-password', requireAuth, requireRole('admin'), async (req, res) => {
   const { rows: target } = await db.query('SELECT access_role FROM employees WHERE id = $1', [req.params.id]);
   if (!target[0]) return res.status(404).json({ error: 'Employee not found.' });
   if (req.user.accessRole !== 'admin' && target[0].access_role !== 'employee') {

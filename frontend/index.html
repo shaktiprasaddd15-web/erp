@@ -905,10 +905,11 @@
         }
         // HR and admin see the stipend field and the full leave history.
         function canSeeStipend() { return CURRENT_USER && ['admin', 'hr'].includes(CURRENT_USER.accessRole); }
-        // Who can open the people-ops areas (Users / Performance): admins and HR
-        // only. Managers can run projects and assign tasks but cannot see anyone's
-        // performance, work-update history, or personal reports.
+        // Performance is admin/HR only. The Users directory is open to managers
+        // too, but the backend scopes a manager to their own team and the UI
+        // hides all edit actions from them (they can only view + create users).
         function canViewPeople() { return CURRENT_USER && ['admin', 'hr'].includes(CURRENT_USER.accessRole); }
+        function canViewUsers() { return CURRENT_USER && ['admin', 'hr', 'manager'].includes(CURRENT_USER.accessRole); }
         // Is a given task assigned to the current user (primary or collective)?
         function isMineTask(t) {
             if (!t || !CURRENT_USER) return false;
@@ -971,7 +972,7 @@
                 CURRENT_USER.department + ' · ' + CURRENT_USER.accessRole;
             // "Users" and "Performance" are for managers/admins/HR; "Projects" for
             // managers/admins. "Mail" is for everyone (already visible).
-            document.getElementById('nav-users').classList.toggle('hidden', !canViewPeople());
+            document.getElementById('nav-users').classList.toggle('hidden', !canViewUsers());
             document.getElementById('nav-perf').classList.toggle('hidden', !canViewPeople());
             document.getElementById('nav-projects').classList.toggle('hidden', !canManageUsers());
             try {
@@ -991,7 +992,8 @@
         document.getElementById('menu-toggle').onclick = () => document.getElementById('sidebar').classList.toggle('open');
 
         function switchView(view) {
-            if ((view === 'users' || view === 'performance') && !canViewPeople()) view = 'home';
+            if (view === 'users' && !canViewUsers()) view = 'home';
+            if (view === 'performance' && !canViewPeople()) view = 'home';
             if (view === 'projects' && !canManageUsers()) view = 'home';
             // "project" (a single open project) highlights the Projects tab for
             // managers/admins, and Home for everyone else (their landing page).
@@ -2618,6 +2620,8 @@
         let USERS_CACHE = [];
 
         async function loadUsers() {
+            // Managers and admins can create accounts; HR can view but not create.
+            document.getElementById('add-emp-btn').classList.toggle('hidden', !canManageUsers());
             // Bulk password reset is an admin-only, whole-directory action.
             document.getElementById('reset-all-btn').classList.toggle('hidden', !isAdmin());
             const dept = document.getElementById('users-dept-filter').value;
@@ -2831,7 +2835,8 @@
             const { employee: emp, stats, history } = data;
             const dir = EMPLOYEES.find(x => x.id === id) || {};
             const email = data.employee.email || dir.email || '—';
-            const canReset = canManageUsers() && (isAdmin() || emp.access_role === 'employee');
+            // Managers are view-only in Users; only admins may reset/edit/delete.
+            const canReset = isAdmin();
             const canDelete = isAdmin() && emp.id !== CURRENT_USER.id;
             // Login lockout state (too many failed password attempts). Admins can
             // clear it so an important account can log back in without a reset.

@@ -5,17 +5,57 @@ const { computeStats, scoreLabel, dailyScore } = require('../utils/scoring');
 
 const router = express.Router();
 
-// GET /api/reports/employees?department=Marketing — manager/admin only.
-// Returns every employee with their current engagement score for the sidebar list.
-router.get('/employees', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
+// A manager's "team": everyone who is a member of a project they manage.
+// Managers may view these people's profiles and work updates (read-only) but
+// nobody else's. Admin/HR see everyone.
+async function managerTeamIds(managerId) {
+  const { rows } = await db.query(
+    `SELECT DISTINCT pm.employee_id AS id FROM project_members pm
+       JOIN projects p ON p.id = pm.project_id
+      WHERE p.manager_id = $1`,
+    [managerId]
+  );
+  return rows.map((r) => r.id);
+}
+async function isTeamMember(managerId, employeeId) {
+  const { rows } = await db.query(
+    `SELECT 1 FROM project_members pm JOIN projects p ON p.id = pm.project_id
+      WHERE p.manager_id = $1 AND pm.employee_id = $2 LIMIT 1`,
+    [managerId, Number(employeeId)]
+  );
+  return rows.length > 0;
+}
+// For a manager, ensure the target employee is on their team (else 403). Admin
+// and HR pass through. Returns true if the request may proceed.
+async function ensureCanViewEmployee(req, res, employeeId) {
+  if (req.user.accessRole === 'manager') {
+    if (!(await isTeamMember(req.user.id, employeeId))) {
+      res.status(403).json({ error: 'You can only view your own team members.' });
+      return false;
+    }
+  }
+  return true;
+}
+
+// GET /api/reports/employees?department=Marketing
+// Admin/HR see everyone; a manager sees only their team.
+router.get('/employees', requireAuth, requireRole('admin', 'hr', 'manager'), async (req, res) => {
   const { department, from, to } = req.query;
   const useRange = !!(from && to);
   const params = [];
-  let where = '';
+  const conds = [];
   if (department && department !== 'all') {
     params.push(department);
-    where = 'WHERE e.department = $1';
+    conds.push(`e.department = $${params.length}`);
   }
+  // Managers only ever see their own team.
+  if (req.user.accessRole === 'manager') {
+    const team = await managerTeamIds(req.user.id);
+    if (!team.length) return res.json({ employees: [] });
+    params.push(team);
+    conds.push(`e.id = ANY($${params.length})`);
+  }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
 
   // Email and access role are included so the admin-only Users directory can
   // show full contact info alongside each person's work history.
@@ -51,9 +91,10 @@ router.get('/employees', requireAuth, requireRole('admin', 'hr'), async (req, re
 });
 
 // GET /api/reports/employees/:id?from=&to= — manager/admin only. Full history + stats.
-router.get('/employees/:id', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
+router.get('/employees/:id', requireAuth, requireRole('admin', 'hr', 'manager'), async (req, res) => {
   const { id } = req.params;
   const { from, to } = req.query;
+  if (!(await ensureCanViewEmployee(req, res, id))) return;
 
   const { rows: empRows } = await db.query(
     'SELECT id, employee_code, name, department, job_title, email, access_role, locked_until, failed_attempts FROM employees WHERE id = $1',
@@ -111,8 +152,9 @@ router.delete('/employees/:id/history', requireAuth, requireRole('admin'), async
 
 // GET /api/reports/employees/:id/projects — the projects this employee is a
 // member of, with how many of their tasks are done. (manager/admin)
-router.get('/employees/:id/projects', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
+router.get('/employees/:id/projects', requireAuth, requireRole('admin', 'hr', 'manager'), async (req, res) => {
   const { id } = req.params;
+  if (!(await ensureCanViewEmployee(req, res, id))) return;
   const { rows } = await db.query(
     `SELECT p.id, p.name, p.status, p.department, p.priority,
             (SELECT COUNT(*)::int FROM tasks t WHERE t.project_id = p.id
@@ -129,8 +171,9 @@ router.get('/employees/:id/projects', requireAuth, requireRole('admin', 'hr'), a
 
 // GET /api/reports/employees/:id/projects/:pid/tasks — this employee's tasks in
 // one project, each with its completion state and its work-update comments.
-router.get('/employees/:id/projects/:pid/tasks', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
+router.get('/employees/:id/projects/:pid/tasks', requireAuth, requireRole('admin', 'hr', 'manager'), async (req, res) => {
   const { id, pid } = req.params;
+  if (!(await ensureCanViewEmployee(req, res, id))) return;
   const { rows: tasks } = await db.query(
     `SELECT t.id, t.title, t.status, t.completion, t.priority, t.task_date
      FROM tasks t WHERE t.project_id = $1
@@ -156,9 +199,10 @@ router.get('/employees/:id/projects/:pid/tasks', requireAuth, requireRole('admin
 // GET /api/reports/employees/:id/calendar?from=&to= — for the report calendar:
 // the days this employee was on leave and the days they filed a work report,
 // within the given range. (manager/admin/hr)
-router.get('/employees/:id/calendar', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
+router.get('/employees/:id/calendar', requireAuth, requireRole('admin', 'hr', 'manager'), async (req, res) => {
   const { id } = req.params;
   const { from, to } = req.query;
+  if (!(await ensureCanViewEmployee(req, res, id))) return;
   if (!from || !to) return res.status(400).json({ error: 'from and to dates are required.' });
 
   // Work-report days (work_entries with a date in range).
@@ -183,9 +227,10 @@ router.get('/employees/:id/calendar', requireAuth, requireRole('admin', 'hr'), a
 
 // GET /api/reports/employees/:id/daily?from=&to= — a daily rating (0-100) for
 // each day in the range, based on that day's work update. (manager/admin/hr)
-router.get('/employees/:id/daily', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
+router.get('/employees/:id/daily', requireAuth, requireRole('admin', 'hr', 'manager'), async (req, res) => {
   const { id, } = req.params;
   const { from, to } = req.query;
+  if (!(await ensureCanViewEmployee(req, res, id))) return;
   if (!from || !to) return res.status(400).json({ error: 'from and to dates are required.' });
 
   const { rows } = await db.query(
