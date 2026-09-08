@@ -1975,7 +1975,7 @@
             catch (e) { box.innerHTML = `<div class="no-entries">${esc(e.message)}</div>`; return; }
             if (!leaves.length) { box.innerHTML = '<div class="no-entries">No leave records to show.</div>'; return; }
             box.innerHTML = `<div class="ptable"><div class="pt-scroll"><table>
-                <thead><tr><th>Employee</th><th>Department</th><th>Dates</th><th>Reason</th><th>Submitted to</th><th>Status</th><th>Action</th></tr></thead>
+                <thead><tr><th>Employee</th><th>Department</th><th>Dates</th><th>Reason</th><th>Submitted to</th><th>Status / decision</th></tr></thead>
                 <tbody>${leaves.map(l => `
                     <tr>
                         <td><div class="pt-owner"><span class="avatar">${initials(l.employee_name)}</span>${esc(l.employee_name)}</div></td>
@@ -1983,10 +1983,11 @@
                         <td>${fmtRange(l.start_date, l.end_date)}</td>
                         <td>${esc(l.reason)}</td>
                         <td class="muted">${l.hr_name ? esc(l.hr_name) : '—'}</td>
-                        <td>${leaveBadge(l.status)}</td>
-                        <td>${(l.status === 'pending' && canDecideLeave(l))
-                            ? `<div style="display:flex;gap:6px;"><button class="btn btn-primary lv-approve" data-id="${l.id}" style="padding:4px 10px;font-size:11.5px;">Approve</button><button class="btn btn-ghost lv-reject" data-id="${l.id}" style="padding:4px 10px;font-size:11.5px;">Reject</button></div>`
-                            : `<span class="muted">${l.status !== 'pending' && l.decided_by_name ? 'by ' + esc(l.decided_by_name) : '—'}</span>`}</td>
+                        <td>
+                            ${(l.status === 'pending' && canDecideLeave(l))
+                                ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;"><button class="btn btn-primary lv-approve" data-id="${l.id}" style="padding:5px 12px;font-size:11.5px;">Approve</button><button class="btn btn-danger lv-reject" data-id="${l.id}" style="padding:5px 12px;font-size:11.5px;">Reject</button></div>`
+                                : `${leaveBadge(l.status)}${l.status !== 'pending' && l.decided_by_name ? ` <span class="muted" style="font-size:11.5px;">by ${esc(l.decided_by_name)}</span>` : ''}`}
+                        </td>
                     </tr>`).join('')}
                 </tbody></table></div></div>`;
             box.querySelectorAll('.lv-approve').forEach(b => b.onclick = () => decideLeave(b.dataset.id, 'approved'));
