@@ -213,11 +213,12 @@ router.get('/employees/:id/calendar', requireAuth, requireRole('admin', 'hr', 'm
   );
   const reportDays = reps.map((r) => r.entry_date);
 
-  // Expand each overlapping leave range into individual days within [from,to].
+  // Expand each overlapping APPROVED leave range into individual days within
+  // [from,to]. Pending/rejected leaves are not counted.
   const { rows: leaves } = await db.query(
     `SELECT generate_series(GREATEST(start_date, $2::date), LEAST(end_date, $3::date), interval '1 day')::date AS d
      FROM leave_requests
-     WHERE employee_id = $1 AND start_date <= $3::date AND end_date >= $2::date`,
+     WHERE employee_id = $1 AND status = 'approved' AND start_date <= $3::date AND end_date >= $2::date`,
     [id, from, to]
   );
   const leaveDays = [...new Set(leaves.map((r) => r.d))];
