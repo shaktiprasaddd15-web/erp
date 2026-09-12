@@ -851,6 +851,7 @@
         let EMPLOYEES = [];          // full directory {id,name,employee_code,department,job_title}
         let DEPARTMENTS = [];
         let CURRENT_PROJECT = null;  // the project currently open in the project view (or null)
+        let LEAVE_HISTORY = [];      // last-loaded leave rows in the Leave history/team panel
         // Standard departments always offered in the pickers/filters (merged with
         // any department that already exists on an employee record).
         const DEPARTMENTS_PRESET = ['Tech', 'App Dev', 'Web Dev', 'Security', 'Cloud Engineering',
@@ -1077,6 +1078,14 @@
                 } else {
                     btn.classList.add('hidden');
                 }
+                return;
+            }
+            // On Home the top-right button shows the user's remarks (feedback
+            // given to them by admins/HR).
+            if (view === 'home') {
+                btn.classList.remove('hidden');
+                btn.textContent = 'Remark';
+                btn.onclick = openMyRemarks;
                 return;
             }
             // Only managers/admins can create projects.
@@ -1865,6 +1874,75 @@
 
         // ════════ MAIL / LEAVE ════════
         function fmtRange(a, b) { return a === b ? fmtDay(a) : fmtDay(a) + ' → ' + fmtDay(b); }
+
+        // ── Remarks ──
+        // The current user's remarks (feedback from admins/HR), opened from the
+        // Home top-right "Remark" button.
+        async function openMyRemarks() {
+            openModal(`<div class="modal-head"><div><h3 class="serif">Remarks for you</h3>
+                    <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;">Notes shared with you by HR and admins</div></div>
+                    <button class="x" onclick="closeModal()">✕</button></div>
+                <div class="modal-body"><div id="rm-list"><div class="cmt-empty">Loading…</div></div></div>`);
+            let remarks = [];
+            try { remarks = (await api('/api/remarks/mine')).remarks; }
+            catch (e) { document.getElementById('rm-list').innerHTML = `<div class="cmt-empty">${esc(e.message)}</div>`; return; }
+            const box = document.getElementById('rm-list');
+            box.innerHTML = remarks.length ? remarks.map(r => `
+                <div class="lv-row">
+                    <div class="lv-reason">${esc(r.body)}</div>
+                    <div class="lv-reason muted" style="margin-top:3px;">${esc(r.author || 'Someone')} · ${new Date(r.created_at).toLocaleDateString()}</div>
+                </div>`).join('') : '<div class="cmt-empty">No remarks yet. 🎉</div>';
+        }
+
+        // Admin/HR: view and add remarks for one user (from the Users profile).
+        async function openUserRemarks(emp) {
+            openModal(`<div class="modal-head"><div><h3 class="serif">Remarks — ${esc(emp.name)}</h3>
+                    <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;">Visible to ${esc(emp.name)} on their Home page</div></div>
+                    <button class="x" onclick="closeModal()">✕</button></div>
+                <div class="modal-body">
+                    <div class="field"><label>New remark</label><textarea class="field-ta" id="rm-body" placeholder="e.g. Please give work updates regularly"></textarea></div>
+                    <div class="form-error hidden" id="rm-err"></div>
+                    <div class="modal-actions" style="justify-content:flex-start;"><button class="btn btn-primary" id="rm-add" style="flex:none;">Add remark</button></div>
+                    <div class="toolbar" style="margin:16px 0 8px;"><div class="section-title">Previous remarks</div></div>
+                    <div id="rm-hist"><div class="cmt-empty">Loading…</div></div>
+                </div>`);
+            const loadHist = async () => {
+                const box = document.getElementById('rm-hist');
+                let remarks = [];
+                try { remarks = (await api('/api/remarks/user/' + emp.id)).remarks; }
+                catch (e) { box.innerHTML = `<div class="cmt-empty">${esc(e.message)}</div>`; return; }
+                box.innerHTML = remarks.length ? remarks.map(r => `
+                    <div class="lv-row" style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+                        <div><div class="lv-reason">${esc(r.body)}</div>
+                            <div class="lv-reason muted" style="margin-top:3px;">${esc(r.author || 'Someone')} · ${new Date(r.created_at).toLocaleDateString()}</div></div>
+                        <button class="btn btn-ghost rm-del" data-id="${r.id}" style="padding:3px 9px;font-size:11px;flex-shrink:0;">Delete</button>
+                    </div>`).join('') : '<div class="cmt-empty">No remarks yet.</div>';
+                box.querySelectorAll('.rm-del').forEach(b => b.onclick = async () => {
+                    if (!confirm('Delete this remark?')) return;
+                    try { await api('/api/remarks/' + b.dataset.id, { method: 'DELETE' }); loadHist(); } catch (e) { alert(e.message); }
+                });
+            };
+            document.getElementById('rm-add').onclick = async () => {
+                const err = document.getElementById('rm-err'); err.classList.add('hidden');
+                const body = document.getElementById('rm-body').value.trim();
+                if (!body) { err.textContent = 'Write a remark.'; err.classList.remove('hidden'); return; }
+                const btn = document.getElementById('rm-add'); btn.disabled = true; btn.textContent = 'Adding…';
+                try { await api('/api/remarks/user/' + emp.id, { method: 'POST', body: JSON.stringify({ body }) });
+                    document.getElementById('rm-body').value = ''; loadHist();
+                } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); }
+                finally { btn.disabled = false; btn.textContent = 'Add remark'; }
+            };
+            loadHist();
+        }
+
+        // The chosen HR or an admin can add/edit a remark on a leave.
+        async function editLeaveRemark(id, current) {
+            const remark = prompt('Remark on this leave (visible to the employee):', current || '');
+            if (remark === null) return;   // cancelled
+            try { await api('/api/leaves/' + id + '/remark', { method: 'PATCH', body: JSON.stringify({ remark }) }); loadLeaveHistory(); }
+            catch (e) { alert(e.message); }
+        }
+
         function leaveBadge(status) {
             const s = status || 'pending';
             const label = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' }[s] || s;
@@ -1960,6 +2038,7 @@
                     </div>
                     <div class="lv-reason">${esc(l.reason)}</div>
                     ${l.hr_name ? `<div class="lv-reason muted" style="margin-top:2px;">Submitted to ${esc(l.hr_name)}${l.status !== 'pending' && l.decided_by_name ? ' · ' + esc(l.status) + ' by ' + esc(l.decided_by_name) : ''}</div>` : ''}
+                    ${l.hr_remark ? `<div class="lv-reason" style="margin-top:5px;"><b>HR remark:</b> ${esc(l.hr_remark)}</div>` : ''}
                 </div>`).join('');
         }
 
@@ -1973,9 +2052,10 @@
             let leaves = [];
             try { leaves = (await api('/api/leaves' + (qs.length ? '?' + qs.join('&') : ''))).leaves; }
             catch (e) { box.innerHTML = `<div class="no-entries">${esc(e.message)}</div>`; return; }
+            LEAVE_HISTORY = leaves;
             if (!leaves.length) { box.innerHTML = '<div class="no-entries">No leave records to show.</div>'; return; }
             box.innerHTML = `<div class="ptable"><div class="pt-scroll"><table>
-                <thead><tr><th>Employee</th><th>Department</th><th>Dates</th><th>Reason</th><th>Submitted to</th><th>Status / decision</th></tr></thead>
+                <thead><tr><th>Employee</th><th>Department</th><th>Dates</th><th>Reason</th><th>Submitted to</th><th>Status / decision</th><th>Remark</th></tr></thead>
                 <tbody>${leaves.map(l => `
                     <tr>
                         <td><div class="pt-owner"><span class="avatar">${initials(l.employee_name)}</span>${esc(l.employee_name)}</div></td>
@@ -1988,10 +2068,18 @@
                                 ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;"><button class="btn btn-primary lv-approve" data-id="${l.id}" style="padding:5px 12px;font-size:11.5px;">Approve</button><button class="btn btn-danger lv-reject" data-id="${l.id}" style="padding:5px 12px;font-size:11.5px;">Reject</button></div>`
                                 : `${leaveBadge(l.status)}${l.status !== 'pending' && l.decided_by_name ? ` <span class="muted" style="font-size:11.5px;">by ${esc(l.decided_by_name)}</span>` : ''}`}
                         </td>
+                        <td>
+                            ${l.hr_remark ? `<div style="font-size:12.5px;margin-bottom:3px;">${esc(l.hr_remark)}</div>` : '<span class="muted">—</span>'}
+                            ${canDecideLeave(l) ? `<button class="btn btn-ghost lv-remark" data-id="${l.id}" style="padding:3px 9px;font-size:11px;">${l.hr_remark ? 'Edit' : 'Add remark'}</button>` : ''}
+                        </td>
                     </tr>`).join('')}
                 </tbody></table></div></div>`;
             box.querySelectorAll('.lv-approve').forEach(b => b.onclick = () => decideLeave(b.dataset.id, 'approved'));
             box.querySelectorAll('.lv-reject').forEach(b => b.onclick = () => { if (confirm('Reject this leave request?')) decideLeave(b.dataset.id, 'rejected'); });
+            box.querySelectorAll('.lv-remark').forEach(b => b.onclick = () => {
+                const cur = (LEAVE_HISTORY.find(x => x.id == b.dataset.id) || {}).hr_remark || '';
+                editLeaveRemark(b.dataset.id, cur);
+            });
         }
 
         // ════════ FAQ / HELP (content scoped to the user's role) ════════
@@ -3025,6 +3113,7 @@
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
                         <button class="btn btn-ghost" id="cal-btn">Calendar</button>
+                        ${(isAdmin() || isHR()) ? '<button class="btn btn-ghost" id="remark-user">Remark</button>' : ''}
                         ${isAdmin() ? '<button class="btn btn-ghost" id="edit-user">Edit</button>' : ''}
                         ${canUnblock ? `<button class="btn ${isLocked ? 'btn-danger' : 'btn-ghost'}" id="unblock-user">Unblock login</button>` : ''}
                         ${canReset ? '<button class="btn btn-ghost" id="reset-pw">Reset password</button>' : ''}
@@ -3057,6 +3146,8 @@
                 document.getElementById('delete-user').onclick = () => openDeleteUserModal(emp);
             }
             document.getElementById('cal-btn').onclick = () => openLeaveCalendar(emp);
+            const remarkBtn = document.getElementById('remark-user');
+            if (remarkBtn) remarkBtn.onclick = () => openUserRemarks(emp);
             const editBtn = document.getElementById('edit-user');
             if (editBtn) editBtn.onclick = () => openEditUserModal(emp);
             const clearBtn = document.getElementById('clear-history');

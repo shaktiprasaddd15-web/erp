@@ -56,7 +56,7 @@ router.post('/', requireAuth, wrap(async (req, res) => {
 // GET /api/leaves/mine — the caller's own leave requests.
 router.get('/mine', requireAuth, wrap(async (req, res) => {
   const { rows } = await db.query(
-    `SELECT l.id, l.start_date, l.end_date, l.reason, l.status, l.created_at,
+    `SELECT l.id, l.start_date, l.end_date, l.reason, l.status, l.hr_remark, l.created_at,
             hr.name AS hr_name, d.name AS decided_by_name
      FROM leave_requests l
        LEFT JOIN employees hr ON hr.id = l.hr_id
@@ -91,6 +91,25 @@ router.patch('/:id/decision', requireAuth, wrap(async (req, res) => {
       title: `Leave ${decision}`,
       body: `Your leave request was ${decision} by ${req.user.name}.`,
     });
+  } catch (e) { /* best-effort */ }
+  res.json({ leave: rows[0] });
+}));
+
+// PATCH /api/leaves/:id/remark { remark } — the chosen HR or an admin adds/edits
+// a remark on a leave. Visible to the employee, all admins, and the managers of
+// that employee's projects.
+router.patch('/:id/remark', requireAuth, wrap(async (req, res) => {
+  const remark = (req.body?.remark || '').trim();
+  const { rows: lr } = await db.query('SELECT id, employee_id, hr_id FROM leave_requests WHERE id = $1', [req.params.id]);
+  if (!lr[0]) return res.status(404).json({ error: 'Leave request not found.' });
+  const canRemark = req.user.accessRole === 'admin' || lr[0].hr_id === req.user.id;
+  if (!canRemark) return res.status(403).json({ error: 'Only the assigned HR or an admin can add a remark.' });
+  const { rows } = await db.query(
+    'UPDATE leave_requests SET hr_remark = $1 WHERE id = $2 RETURNING id, hr_remark',
+    [remark ? remark.slice(0, 2000) : null, req.params.id]
+  );
+  try {
+    if (remark) await sendPushToEmployees([lr[0].employee_id], { title: 'Remark on your leave', body: remark.slice(0, 120) });
   } catch (e) { /* best-effort */ }
   res.json({ leave: rows[0] });
 }));
@@ -131,7 +150,7 @@ router.get('/', requireAuth, wrap(async (req, res) => {
 
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const { rows } = await db.query(
-    `SELECT l.id, l.start_date, l.end_date, l.reason, l.status, l.created_at, l.hr_id, l.decided_at,
+    `SELECT l.id, l.start_date, l.end_date, l.reason, l.status, l.created_at, l.hr_id, l.decided_at, l.hr_remark,
             e.id AS employee_id, e.name AS employee_name, e.employee_code, e.department, e.job_title,
             hr.name AS hr_name, d.name AS decided_by_name
      FROM leave_requests l
