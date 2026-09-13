@@ -6,6 +6,51 @@ const { sendPushToEmployees } = require('../utils/push');
 const router = express.Router();
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
+// Company policy: leave days allowed per calendar month. Override via env.
+const MONTHLY_LEAVE_LIMIT = Number(process.env.MONTHLY_LEAVE_LIMIT) || 5;
+
+const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+const monthLabel = (key) => {
+  const [y, m] = key.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+};
+
+// Given leave rows (each {start_date,end_date,...}), bucket by calendar month:
+// total leave DAYS falling in each month, plus the leaves that touch it.
+function monthBuckets(leaves) {
+  const buckets = {}; // key -> { days, leaves: [] }
+  leaves.forEach((l) => {
+    const start = new Date(l.start_date + 'T00:00:00');
+    const end = new Date(l.end_date + 'T00:00:00');
+    const touched = new Set();
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const k = monthKey(d);
+      (buckets[k] ||= { days: 0, leaves: [] }).days++;
+      touched.add(k);
+    }
+    touched.forEach((k) => buckets[k].leaves.push(l));
+  });
+  return buckets;
+}
+
+// Month-wise leave summary for one employee (non-rejected leaves count).
+async function leaveSummary(employeeId) {
+  const { rows } = await db.query(
+    `SELECT id, start_date, end_date, reason, status FROM leave_requests
+     WHERE employee_id = $1 AND status <> 'rejected' ORDER BY start_date DESC`,
+    [employeeId]
+  );
+  const buckets = monthBuckets(rows);
+  const months = Object.keys(buckets).sort().reverse().map((k) => ({
+    month: k,
+    label: monthLabel(k),
+    days: buckets[k].days,
+    over: buckets[k].days > MONTHLY_LEAVE_LIMIT,
+    leaves: buckets[k].leaves,
+  }));
+  return { limit: MONTHLY_LEAVE_LIMIT, months };
+}
+
 // POST /api/leaves — an employee files a leave (single day or a period) to the
 // HR person they choose. It is also visible to the managers of the projects the
 // employee is a member of.
@@ -50,7 +95,58 @@ router.post('/', requireAuth, wrap(async (req, res) => {
     });
   } catch (e) { /* push is best-effort */ }
 
+  // Monthly-limit check: if this leave pushes any month PAST the allowance,
+  // alert all HR-team members (once, at the crossing).
+  try {
+    const summary = await leaveSummary(req.user.id);
+    const newStart = new Date(startDate + 'T00:00:00');
+    const newEnd = new Date(endDate + 'T00:00:00');
+    const touched = new Set();
+    for (let d = new Date(newStart); d <= newEnd; d.setDate(d.getDate() + 1)) touched.add(monthKey(d));
+    // days this new leave contributes per month
+    const contrib = {};
+    for (let d = new Date(newStart); d <= newEnd; d.setDate(d.getDate() + 1)) contrib[monthKey(d)] = (contrib[monthKey(d)] || 0) + 1;
+
+    for (const k of touched) {
+      const m = summary.months.find((x) => x.month === k);
+      const total = m ? m.days : 0;
+      const before = total - (contrib[k] || 0);
+      if (total > MONTHLY_LEAVE_LIMIT && before <= MONTHLY_LEAVE_LIMIT) {
+        const { rows: hrs } = await db.query(
+          "SELECT id FROM employees WHERE is_active = true AND (access_role = 'hr' OR lower(department) = 'hr')"
+        );
+        await sendPushToEmployees(hrs.map((h) => h.id).filter((id) => id !== req.user.id), {
+          title: 'Monthly leave limit exceeded',
+          body: `${req.user.name} now has ${total} leave days in ${monthLabel(k)} (limit ${MONTHLY_LEAVE_LIMIT}).`,
+        });
+      }
+    }
+  } catch (e) { /* best-effort */ }
+
   res.status(201).json({ leave: rows[0] });
+}));
+
+// GET /api/leaves/summary/mine — the caller's own month-wise leave summary.
+router.get('/summary/mine', requireAuth, wrap(async (req, res) => {
+  res.json(await leaveSummary(req.user.id));
+}));
+
+// GET /api/leaves/summary/:id — month-wise leave summary for one employee.
+// Admin/HR (anyone), a manager (their team only), or the person themselves.
+router.get('/summary/:id', requireAuth, wrap(async (req, res) => {
+  const targetId = Number(req.params.id);
+  const role = req.user.accessRole;
+  let allowed = role === 'admin' || role === 'hr' || targetId === req.user.id;
+  if (!allowed && role === 'manager') {
+    const { rows } = await db.query(
+      `SELECT 1 FROM project_members pm JOIN projects p ON p.id = pm.project_id
+        WHERE p.manager_id = $1 AND pm.employee_id = $2 LIMIT 1`,
+      [req.user.id, targetId]
+    );
+    allowed = rows.length > 0;
+  }
+  if (!allowed) return res.status(403).json({ error: 'Not allowed.' });
+  res.json(await leaveSummary(targetId));
 }));
 
 // GET /api/leaves/mine — the caller's own leave requests.
