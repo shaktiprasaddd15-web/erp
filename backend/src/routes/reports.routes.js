@@ -82,9 +82,34 @@ router.get('/employees', requireAuth, requireRole('admin', 'hr', 'manager'), asy
   });
 
   const range = useRange ? { from, to } : null;
+
+  // Per-employee task counts (assigned vs. completed), covering both the primary
+  // assignee and collective assignees, deduped per (task, person).
+  const empIds = employees.map((e) => e.id);
+  const taskMap = {};
+  if (empIds.length) {
+    const { rows: tc } = await db.query(
+      `WITH assignments AS (
+         SELECT DISTINCT t.id AS task_id, t.status, u.emp_id
+         FROM tasks t
+         JOIN LATERAL (
+           SELECT t.assignee_id AS emp_id WHERE t.assignee_id = ANY($1)
+           UNION
+           SELECT ta.employee_id FROM task_assignees ta WHERE ta.task_id = t.id AND ta.employee_id = ANY($1)
+         ) u ON true
+       )
+       SELECT emp_id, COUNT(*)::int AS assigned,
+              COUNT(*) FILTER (WHERE status = 'done')::int AS done
+       FROM assignments GROUP BY emp_id`,
+      [empIds]
+    );
+    tc.forEach((r) => { taskMap[r.emp_id] = { assigned: r.assigned, done: r.done }; });
+  }
+
   const result = employees.map((emp) => {
     const stats = computeStats(byEmployee[emp.id] || [], 30, range);
-    return { ...emp, score: stats.score, label: scoreLabel(stats.score) };
+    const t = taskMap[emp.id] || { assigned: 0, done: 0 };
+    return { ...emp, score: stats.score, label: scoreLabel(stats.score), tasks_assigned: t.assigned, tasks_done: t.done };
   });
 
   res.json({ employees: result });

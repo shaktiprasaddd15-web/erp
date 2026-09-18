@@ -278,8 +278,8 @@
         .perf-summary .cell .n { font-size: 26px; font-weight: 700; line-height: 1; }
         .perf-summary .cell .k { font-size: 11px; color: var(--ink-soft); margin-top: 6px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
         .perf-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; box-shadow: var(--shadow); }
-        .pf-row { display: grid; grid-template-columns: 190px 1fr 40px; align-items: center; gap: 14px; padding: 7px 0; }
-        @media (max-width: 640px) { .pf-row { grid-template-columns: 120px 1fr 34px; gap: 8px; } }
+        .pf-row { display: grid; grid-template-columns: 190px 1fr 74px; align-items: center; gap: 14px; padding: 7px 0; }
+        @media (max-width: 640px) { .pf-row { grid-template-columns: 120px 1fr 60px; gap: 8px; } }
         .pf-name { min-width: 0; }
         .pf-name .nm { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
         .pf-name .sub { font-size: 10.5px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
@@ -289,6 +289,11 @@
         .pf-bar.score-steady { background: var(--warn); }
         .pf-bar.score-low { background: var(--red); }
         .pf-score { font-size: 14px; font-weight: 700; text-align: right; }
+        .pf-tasks { font-size: 13px; font-weight: 700; text-align: right; white-space: nowrap; }
+        .pf-tasks .done { color: var(--green); }
+        .pf-tasks .sep { color: var(--ink-soft); font-weight: 400; margin: 0 2px; }
+        .pf-tasks .pct { display: block; font-size: 10.5px; font-weight: 600; color: var(--ink-soft); }
+        .perf-view-btn.active { background: var(--brand); color: #fff; border-color: var(--brand); }
         .perf-legend { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 16px; font-size: 12px; color: var(--ink); }
         .perf-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
 
@@ -808,6 +813,13 @@
                         <div class="section-title">Engagement scores by employee</div>
                         <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
                             <div class="filter">
+                                <label>View</label>
+                                <div style="display:flex;gap:6px;">
+                                    <button class="pp-team-btn perf-view-btn active" data-view="engagement">Engagement</button>
+                                    <button class="pp-team-btn perf-view-btn" data-view="tasks">Tasks</button>
+                                </div>
+                            </div>
+                            <div class="filter" id="perf-period-filter">
                                 <label>Period</label>
                                 <div style="display:flex;align-items:center;gap:6px;">
                                     <input type="date" id="perf-from" class="perf-date" title="From">
@@ -855,6 +867,8 @@
         let DEPARTMENTS = [];
         let CURRENT_PROJECT = null;  // the project currently open in the project view (or null)
         let LEAVE_HISTORY = [];      // last-loaded leave rows in the Leave history/team panel
+        let PERF_VIEW = 'engagement';  // 'engagement' | 'tasks' — Performance view toggle
+        let PERF_EMPLOYEES = [];       // last-loaded Performance rows (both metrics)
         // Standard departments always offered in the pickers/filters (merged with
         // any department that already exists on an employee record).
         const DEPARTMENTS_PRESET = ['Tech', 'App Dev', 'Web Dev', 'Security', 'Cloud Engineering',
@@ -1612,6 +1626,12 @@
         document.getElementById('users-dept-filter').onchange = loadUsers;
         document.getElementById('users-search').oninput = renderUsersList;
         document.getElementById('perf-dept-filter').onchange = loadPerformance;
+        // Performance view toggle (Engagement / Tasks) — re-renders from cached data.
+        document.querySelectorAll('.perf-view-btn').forEach(b => b.onclick = () => {
+            PERF_VIEW = b.dataset.view;
+            document.querySelectorAll('.perf-view-btn').forEach(x => x.classList.toggle('active', x.dataset.view === PERF_VIEW));
+            renderPerf();
+        });
         document.getElementById('perf-apply').onclick = () => {
             const f = document.getElementById('perf-from').value, t = document.getElementById('perf-to').value;
             if ((f && !t) || (!f && t)) { alert('Pick both a From and a To date to set a period.'); return; }
@@ -2974,21 +2994,60 @@
             try {
                 ({ employees } = await api('/api/reports/employees' + (qs.length ? '?' + qs.join('&') : '')));
             } catch (e) { chart.innerHTML = `<div class="empty-state">${esc(e.message)}</div>`; return; }
-            if (!employees.length) { chart.innerHTML = '<div class="empty-state">No employees to show.</div>'; return; }
+            PERF_EMPLOYEES = employees;
+            renderPerf();
+        }
 
-            // Highest scorers first so top performers are read at a glance.
-            employees.sort((a, b) => b.score - a.score);
-            const avg = Math.round(employees.reduce((s, e) => s + e.score, 0) / employees.length);
-            const strong = employees.filter(e => e.score >= 75).length;
-            const low = employees.filter(e => e.score < 50).length;
+        // Render the Performance list in the active view (engagement bars, or the
+        // task completed/assigned column). Data for both is already loaded.
+        function renderPerf() {
+            const chart = document.getElementById('perf-chart');
+            const summary = document.getElementById('perf-summary');
+            const employees = PERF_EMPLOYEES || [];
+            const tasksMode = PERF_VIEW === 'tasks';
+            // Engagement-only chrome is hidden in Tasks view.
+            const pf = document.getElementById('perf-period-filter'); if (pf) pf.classList.toggle('hidden', tasksMode);
+            const note = document.getElementById('perf-window-note'); if (note) note.classList.toggle('hidden', tasksMode);
+            const legend = document.querySelector('#view-perf .perf-legend'); if (legend) legend.classList.toggle('hidden', tasksMode);
+            const title = document.querySelector('#view-perf .section-title');
+            if (title) title.textContent = tasksMode ? 'Task completion by employee' : 'Engagement scores by employee';
 
+            if (!employees.length) { summary.innerHTML = ''; chart.innerHTML = '<div class="empty-state">No employees to show.</div>'; return; }
+
+            if (tasksMode) {
+                const list = [...employees].sort((a, b) => (b.tasks_assigned - a.tasks_assigned) || (b.tasks_done - a.tasks_done));
+                const totalA = list.reduce((s, e) => s + (e.tasks_assigned || 0), 0);
+                const totalD = list.reduce((s, e) => s + (e.tasks_done || 0), 0);
+                const pct = totalA ? Math.round(totalD / totalA * 100) : 0;
+                summary.innerHTML = `
+                    <div class="cell"><div class="n">${list.length}</div><div class="k">Employees</div></div>
+                    <div class="cell"><div class="n">${totalA}</div><div class="k">Tasks assigned</div></div>
+                    <div class="cell"><div class="n">${totalD}</div><div class="k">Tasks completed</div></div>
+                    <div class="cell"><div class="n">${pct}%</div><div class="k">Completion</div></div>`;
+                chart.innerHTML = list.map(e => {
+                    const a = e.tasks_assigned || 0, d = e.tasks_done || 0;
+                    const p = a ? Math.round(d / a * 100) : 0;
+                    const cls = p >= 75 ? 'score-strong' : p >= 50 ? 'score-steady' : 'score-low';
+                    return `<div class="pf-row">
+                        <div class="pf-name"><span class="nm">${esc(e.name)}</span><span class="sub">${esc(e.employee_code)} · ${esc(e.department)}</span></div>
+                        <div class="pf-track"><div class="pf-bar ${a ? cls : ''}" style="width:${a ? Math.max(2, p) : 0}%"></div></div>
+                        <div class="pf-tasks"><span class="done">${d}</span><span class="sep">/</span>${a}<span class="pct">${a ? p + '% done' : 'no tasks'}</span></div>
+                    </div>`;
+                }).join('');
+                return;
+            }
+
+            // Engagement view — highest scorers first.
+            const list = [...employees].sort((a, b) => b.score - a.score);
+            const avg = Math.round(list.reduce((s, e) => s + e.score, 0) / list.length);
+            const strong = list.filter(e => e.score >= 75).length;
+            const low = list.filter(e => e.score < 50).length;
             summary.innerHTML = `
-                <div class="cell"><div class="n">${employees.length}</div><div class="k">Employees</div></div>
+                <div class="cell"><div class="n">${list.length}</div><div class="k">Employees</div></div>
                 <div class="cell"><div class="n">${avg}</div><div class="k">Average score</div></div>
                 <div class="cell"><div class="n">${strong}</div><div class="k">Strong (75+)</div></div>
                 <div class="cell"><div class="n">${low}</div><div class="k">Needs attention</div></div>`;
-
-            chart.innerHTML = employees.map(e => `
+            chart.innerHTML = list.map(e => `
                 <div class="pf-row" data-emp="${e.id}" title="Click to see ${esc(e.name)}'s daily ratings">
                     <div class="pf-name">
                         <span class="nm">${esc(e.name)}</span>
@@ -3000,7 +3059,7 @@
             chart.querySelectorAll('.pf-row[data-emp]').forEach(row => {
                 row.style.cursor = 'pointer';
                 row.onclick = () => {
-                    const e = employees.find(x => x.id == row.dataset.emp);
+                    const e = list.find(x => x.id == row.dataset.emp);
                     openDailyGraph(e);
                 };
             });
