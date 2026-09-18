@@ -812,7 +812,7 @@
                     <div class="toolbar">
                         <div class="section-title">Engagement scores by employee</div>
                         <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
-                            <div class="filter">
+                            <div class="filter" id="perf-view-filter">
                                 <label>View</label>
                                 <div style="display:flex;gap:6px;">
                                     <button class="pp-team-btn perf-view-btn active" data-view="engagement">Engagement</button>
@@ -3004,6 +3004,11 @@
             const chart = document.getElementById('perf-chart');
             const summary = document.getElementById('perf-summary');
             const employees = PERF_EMPLOYEES || [];
+            // The Tasks view is admin-only; hide the toggle and force Engagement
+            // for everyone else (e.g. HR).
+            const viewFilter = document.getElementById('perf-view-filter');
+            if (viewFilter) viewFilter.classList.toggle('hidden', !isAdmin());
+            if (!isAdmin()) PERF_VIEW = 'engagement';
             const tasksMode = PERF_VIEW === 'tasks';
             // Engagement-only chrome is hidden in Tasks view.
             const pf = document.getElementById('perf-period-filter'); if (pf) pf.classList.toggle('hidden', tasksMode);

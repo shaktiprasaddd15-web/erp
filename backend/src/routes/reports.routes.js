@@ -84,10 +84,11 @@ router.get('/employees', requireAuth, requireRole('admin', 'hr', 'manager'), asy
   const range = useRange ? { from, to } : null;
 
   // Per-employee task counts (assigned vs. completed), covering both the primary
-  // assignee and collective assignees, deduped per (task, person).
+  // assignee and collective assignees, deduped per (task, person). Admin-only —
+  // the Tasks view in Performance is restricted to admins.
   const empIds = employees.map((e) => e.id);
   const taskMap = {};
-  if (empIds.length) {
+  if (req.user.accessRole === 'admin' && empIds.length) {
     const { rows: tc } = await db.query(
       `WITH assignments AS (
          SELECT DISTINCT t.id AS task_id, t.status, u.emp_id
