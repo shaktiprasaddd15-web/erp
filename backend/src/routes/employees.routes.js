@@ -62,6 +62,28 @@ router.post('/', requireAuth, requireRole('manager', 'admin'), async (req, res) 
   }
 });
 
+// PUT /api/employees/me/personal-details — the signed-in user fills in their
+// own date of birth, joining date and internship tenure (collected via a
+// one-time popup on first login). Marks personal_details_done so the popup
+// won't appear again. Date of birth and joining date are required; internship
+// tenure is free text and optional (blank for full-time staff).
+router.put('/me/personal-details', requireAuth, async (req, res) => {
+  const { dateOfBirth, joiningDate, internshipTenure } = req.body || {};
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRe.test(dateOfBirth || '')) return res.status(400).json({ error: 'A valid date of birth is required.' });
+  if (!dateRe.test(joiningDate || '')) return res.status(400).json({ error: 'A valid joining date is required.' });
+  const tenure = (internshipTenure == null ? '' : String(internshipTenure)).trim().slice(0, 120);
+
+  await db.query(
+    `UPDATE employees
+        SET date_of_birth = $1, joining_date = $2, internship_tenure = $3,
+            personal_details_done = true, updated_at = now()
+      WHERE id = $4`,
+    [dateOfBirth, joiningDate, tenure || null, req.user.id]
+  );
+  res.json({ ok: true });
+});
+
 // POST /api/employees/:id/reset-password — admin only. Managers can create
 // accounts but cannot edit or reset existing ones.
 router.post('/:id/reset-password', requireAuth, requireRole('admin'), async (req, res) => {
@@ -166,6 +188,18 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
       return res.status(400).json({ error: 'You cannot change your own access level.' });
     }
     put('access_role', b.accessRole);
+  }
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  if (b.dateOfBirth !== undefined) {
+    if (b.dateOfBirth && !dateRe.test(b.dateOfBirth)) return res.status(400).json({ error: 'Invalid date of birth.' });
+    put('date_of_birth', b.dateOfBirth || null);
+  }
+  if (b.joiningDate !== undefined) {
+    if (b.joiningDate && !dateRe.test(b.joiningDate)) return res.status(400).json({ error: 'Invalid joining date.' });
+    put('joining_date', b.joiningDate || null);
+  }
+  if (b.internshipTenure !== undefined) {
+    put('internship_tenure', String(b.internshipTenure).trim().slice(0, 120) || null);
   }
   if (!sets.length) return res.status(400).json({ error: 'Nothing to update.' });
 

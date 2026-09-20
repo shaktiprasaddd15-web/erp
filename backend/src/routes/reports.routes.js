@@ -123,7 +123,7 @@ router.get('/employees/:id', requireAuth, requireRole('admin', 'hr', 'manager'),
   if (!(await ensureCanViewEmployee(req, res, id))) return;
 
   const { rows: empRows } = await db.query(
-    'SELECT id, employee_code, name, department, job_title, email, access_role, locked_until, failed_attempts FROM employees WHERE id = $1',
+    'SELECT id, employee_code, name, department, job_title, email, access_role, locked_until, failed_attempts, date_of_birth, joining_date, internship_tenure FROM employees WHERE id = $1',
     [id]
   );
   const employee = empRows[0];

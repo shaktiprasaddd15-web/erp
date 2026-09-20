@@ -108,6 +108,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       baseRole: user.access_role,
       tempAccess: grant ? { role: grant.granted_role, expiresAt: grant.expires_at } : null,
       mustResetPassword: user.must_reset_pw,
+      needsPersonalDetails: !user.personal_details_done,
     },
   });
 });
@@ -139,7 +140,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
 // GET /api/auth/me
 router.get('/me', requireAuth, async (req, res) => {
   const { rows } = await db.query(
-    'SELECT id, employee_code, name, email, department, job_title, access_role, must_reset_pw FROM employees WHERE id = $1',
+    'SELECT id, employee_code, name, email, department, job_title, access_role, must_reset_pw, personal_details_done FROM employees WHERE id = $1',
     [req.user.id]
   );
   if (!rows[0]) return res.status(404).json({ error: 'User not found.' });

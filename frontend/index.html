@@ -981,8 +981,7 @@
                 const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
                 TOKEN = data.token; sessionStorage.setItem('wt_token', TOKEN);
                 CURRENT_USER = data.user;
-                if (CURRENT_USER.mustResetPassword) openResetModal();
-                else await enterApp();
+                await postAuthFlow();
             } catch (e) {
                 err.textContent = '' + e.message; err.classList.remove('hidden');
             } finally { btn.disabled = false; btn.textContent = 'Sign in'; }
@@ -1003,9 +1002,9 @@
                 CURRENT_USER = { id: u.id, employeeCode: u.employee_code, name: u.name, email: u.email,
                     department: u.department, jobTitle: u.job_title, accessRole: u.access_role,
                     baseRole: u.base_role || u.access_role, tempAccess: u.temp_access || null,
-                    mustResetPassword: u.must_reset_pw };
-                if (CURRENT_USER.mustResetPassword) openResetModal();
-                else await enterApp();
+                    mustResetPassword: u.must_reset_pw,
+                    needsPersonalDetails: !u.personal_details_done };
+                await postAuthFlow();
             } catch (e) { TOKEN = null; sessionStorage.removeItem('wt_token'); }
         })();
 
@@ -2528,8 +2527,46 @@
                 try {
                     await api('/api/auth/change-password', { method: 'POST', body: JSON.stringify({
                         currentPassword: document.getElementById('rc').value, newPassword: document.getElementById('rn').value }) });
-                    CURRENT_USER.mustResetPassword = false; closeModal(); await enterApp();
+                    CURRENT_USER.mustResetPassword = false; closeModal(); await postAuthFlow();
                 } catch (e) { err.textContent = '' + e.message; err.classList.remove('hidden'); }
+            };
+        }
+
+        // Decides what a freshly-authenticated user sees before the app: first a
+        // forced password change (if still on the onboarding password), then a
+        // one-time popup collecting their date of birth, joining date and
+        // internship tenure. Once both are cleared, the app opens.
+        async function postAuthFlow() {
+            if (CURRENT_USER.mustResetPassword) return openResetModal();
+            if (CURRENT_USER.needsPersonalDetails) return openDetailsModal();
+            await enterApp();
+        }
+
+        // One-time onboarding popup: capture personal details we keep on file.
+        function openDetailsModal() {
+            openModal(`
+                <div class="modal-head"><h3 class="serif">A few details about you</h3></div>
+                <div class="modal-body">
+                    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">We keep these on your profile. This is a one-time step.</p>
+                    <div class="field"><label>Date of birth</label><input type="date" id="pd-dob" /></div>
+                    <div class="field"><label>Joining date</label><input type="date" id="pd-join" /></div>
+                    <div class="field"><label>Internship tenure <span style="color:var(--ink-soft);font-weight:400;">(leave blank if not an intern)</span></label>
+                        <input type="text" id="pd-tenure" placeholder="e.g. Jan 2025 – Jun 2025, or 6 months" /></div>
+                    <div class="form-error hidden" id="pd-err"></div>
+                    <div class="modal-actions"><button class="btn btn-primary" id="pd-save">Save & continue</button></div>
+                </div>`);
+            document.getElementById('pd-save').onclick = async () => {
+                const err = document.getElementById('pd-err'); err.classList.add('hidden');
+                const dob = document.getElementById('pd-dob').value;
+                const join = document.getElementById('pd-join').value;
+                const tenure = document.getElementById('pd-tenure').value;
+                if (!dob || !join) { err.textContent = 'Please enter your date of birth and joining date.'; err.classList.remove('hidden'); return; }
+                const btn = document.getElementById('pd-save'); btn.disabled = true; btn.textContent = 'Saving…';
+                try {
+                    await api('/api/employees/me/personal-details', { method: 'PUT', body: JSON.stringify({
+                        dateOfBirth: dob, joiningDate: join, internshipTenure: tenure }) });
+                    CURRENT_USER.needsPersonalDetails = false; closeModal(); await enterApp();
+                } catch (e) { err.textContent = '' + e.message; err.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Save & continue'; }
             };
         }
 
@@ -3226,6 +3263,9 @@
                 <div class="u-meta">
                     ${isLocked ? `<span style="color:var(--red);font-weight:600;">⚠ Login blocked (too many failed attempts) until ${lockedUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>` : ''}
                     <span><b>Email</b> ${esc(email)}</span>
+                    <span><b>Date of birth</b> ${emp.date_of_birth ? fmtDay(String(emp.date_of_birth).slice(0, 10)) : '—'}</span>
+                    <span><b>Joining date</b> ${emp.joining_date ? fmtDay(String(emp.joining_date).slice(0, 10)) : '—'}</span>
+                    <span><b>Internship tenure</b> ${emp.internship_tenure ? esc(emp.internship_tenure) : '—'}</span>
                     <span><b>Days logged (30d)</b> ${stats.submittedDays}/${stats.windowDays}</span>
                     <span><b>Avg points/entry</b> ${stats.avgBulletsPerEntry}</span>
                     <span><b>With evidence</b> ${stats.attachRatePct}%</span>
@@ -3291,6 +3331,11 @@
                     <div class="field"><label>Name</label><input type="text" id="eu-name" value="${esc(emp.name)}"></div>
                     <div class="field"><label>Designation (job title)</label><input type="text" id="eu-title" value="${esc(emp.job_title || '')}" placeholder="e.g. Marketing Executive"></div>
                     <div class="field"><label>Department</label><input type="text" id="eu-dept" list="eu-deptlist" value="${esc(emp.department)}"><datalist id="eu-deptlist">${deptOpts}</datalist></div>
+                    <div class="row2">
+                        <div class="field"><label>Date of birth</label><input type="date" id="eu-dob" value="${emp.date_of_birth ? String(emp.date_of_birth).slice(0, 10) : ''}"></div>
+                        <div class="field"><label>Joining date</label><input type="date" id="eu-join" value="${emp.joining_date ? String(emp.joining_date).slice(0, 10) : ''}"></div>
+                    </div>
+                    <div class="field"><label>Internship tenure</label><input type="text" id="eu-tenure" value="${esc(emp.internship_tenure || '')}" placeholder="e.g. Jan 2025 – Jun 2025 (blank if none)"></div>
                     <div class="field"><label>Permanent access level</label>
                         <select id="eu-role" ${isSelf ? 'disabled' : ''}>${roles.map(([v, l]) => `<option value="${v}" ${v === emp.access_role ? 'selected' : ''}>${l}</option>`).join('')}</select>
                         ${isSelf ? '<div class="muted" style="margin-top:6px;">You can’t change your own access level.</div>' : ''}
@@ -3307,6 +3352,9 @@
                     name: document.getElementById('eu-name').value.trim(),
                     jobTitle: document.getElementById('eu-title').value.trim(),
                     department: document.getElementById('eu-dept').value.trim(),
+                    dateOfBirth: document.getElementById('eu-dob').value,
+                    joiningDate: document.getElementById('eu-join').value,
+                    internshipTenure: document.getElementById('eu-tenure').value.trim(),
                 };
                 if (!isSelf) body.accessRole = document.getElementById('eu-role').value;
                 if (body.name.length < 2) { err.textContent = 'Name must be at least 2 characters.'; err.classList.remove('hidden'); return; }
