@@ -1912,7 +1912,7 @@
             box.innerHTML = remarks.length ? remarks.map(r => `
                 <div class="lv-row">
                     <div class="lv-reason">${esc(r.body)}</div>
-                    <div class="lv-reason muted" style="margin-top:3px;">${esc(r.author || 'Someone')} · ${new Date(r.created_at).toLocaleDateString()}</div>
+                    <div class="lv-reason muted" style="margin-top:3px;">${esc(r.author || 'Someone')} · ${new Date(r.created_at).toLocaleDateString()}${r.updated_at ? ' · <i>edited ' + new Date(r.updated_at).toLocaleDateString() + '</i>' : ''}</div>
                 </div>`).join('') : '<div class="cmt-empty">No remarks yet. 🎉</div>';
         }
 
@@ -1934,14 +1934,39 @@
                 try { remarks = (await api('/api/remarks/user/' + emp.id)).remarks; }
                 catch (e) { box.innerHTML = `<div class="cmt-empty">${esc(e.message)}</div>`; return; }
                 box.innerHTML = remarks.length ? remarks.map(r => `
-                    <div class="lv-row" style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
-                        <div><div class="lv-reason">${esc(r.body)}</div>
-                            <div class="lv-reason muted" style="margin-top:3px;">${esc(r.author || 'Someone')} · ${new Date(r.created_at).toLocaleDateString()}</div></div>
-                        <button class="btn btn-ghost rm-del" data-id="${r.id}" style="padding:3px 9px;font-size:11px;flex-shrink:0;">Delete</button>
+                    <div class="lv-row" data-id="${r.id}">
+                        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+                            <div style="min-width:0;"><div class="lv-reason rm-text">${esc(r.body)}</div>
+                                <div class="lv-reason muted" style="margin-top:3px;">${esc(r.author || 'Someone')} · ${new Date(r.created_at).toLocaleDateString()}${r.updated_at ? ' · <i>edited ' + new Date(r.updated_at).toLocaleDateString() + '</i>' : ''}</div></div>
+                            <div style="display:flex;gap:6px;flex-shrink:0;">
+                                <button class="btn btn-ghost rm-edit" data-id="${r.id}" style="padding:3px 9px;font-size:11px;">Edit</button>
+                                <button class="btn btn-ghost rm-del" data-id="${r.id}" style="padding:3px 9px;font-size:11px;">Delete</button>
+                            </div>
+                        </div>
                     </div>`).join('') : '<div class="cmt-empty">No remarks yet.</div>';
                 box.querySelectorAll('.rm-del').forEach(b => b.onclick = async () => {
                     if (!confirm('Delete this remark?')) return;
                     try { await api('/api/remarks/' + b.dataset.id, { method: 'DELETE' }); loadHist(); } catch (e) { alert(e.message); }
+                });
+                box.querySelectorAll('.rm-edit').forEach(b => b.onclick = () => {
+                    const row = box.querySelector('.lv-row[data-id="' + b.dataset.id + '"]');
+                    const r = remarks.find(x => x.id == b.dataset.id);
+                    row.innerHTML = `
+                        <textarea class="field-ta rm-edit-ta" style="width:100%;">${esc(r.body)}</textarea>
+                        <div class="form-error hidden rm-edit-err"></div>
+                        <div class="modal-actions" style="justify-content:flex-start;margin-top:10px;">
+                            <button class="btn btn-primary rm-save" style="flex:none;">Save changes</button>
+                            <button class="btn btn-ghost rm-cancel" style="flex:none;">Cancel</button>
+                        </div>`;
+                    row.querySelector('.rm-cancel').onclick = () => loadHist();
+                    row.querySelector('.rm-save').onclick = async () => {
+                        const err = row.querySelector('.rm-edit-err');
+                        const body = row.querySelector('.rm-edit-ta').value.trim();
+                        if (!body) { err.textContent = 'Remark cannot be empty.'; err.classList.remove('hidden'); return; }
+                        const sv = row.querySelector('.rm-save'); sv.disabled = true; sv.textContent = 'Saving…';
+                        try { await api('/api/remarks/' + b.dataset.id, { method: 'PATCH', body: JSON.stringify({ body }) }); loadHist(); }
+                        catch (e) { err.textContent = e.message; err.classList.remove('hidden'); sv.disabled = false; sv.textContent = 'Save changes'; }
+                    };
                 });
             };
             document.getElementById('rm-add').onclick = async () => {
