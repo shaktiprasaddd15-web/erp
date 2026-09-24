@@ -873,7 +873,7 @@
         // any department that already exists on an employee record).
         const DEPARTMENTS_PRESET = ['Tech', 'App Dev', 'Web Dev', 'Security', 'Cloud Engineering',
             'Designers', 'Tech Business', 'Social Media & PR', 'Graphic Design', 'Video Editing',
-            'Content Writing', 'Content Creator', 'Analytics'];
+            'Content Writing', 'Content Creator', 'Analytics', 'FEC'];
         function allDepartments() { return [...new Set([...DEPARTMENTS_PRESET, ...DEPARTMENTS])].sort(); }
 
         async function api(path, options = {}) {
