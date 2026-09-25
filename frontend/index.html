@@ -687,6 +687,7 @@
                     <div class="sb-link hidden" data-view="performance" id="nav-perf"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3.2" height="6" rx="1"/><rect x="12.5" y="8" width="3.2" height="10" rx="1"/><rect x="18" y="5" width="3.2" height="13" rx="1"/></svg> Performance</div>
                     <div class="sb-link" data-view="settings" id="nav-settings"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</div>
                     <div class="sb-link hidden" data-view="users" id="nav-users"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3 2.6-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.2A3 3 0 0 1 16 11"/><path d="M15.5 15c2.6.3 4.5 2.3 4.5 5"/></svg> Users</div>
+                    <div class="sb-link hidden" data-view="hrboard" id="nav-hrboard"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg> HR Board</div>
                     <div class="sb-link" data-view="faq" id="nav-faq"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3"/><path d="M12 17h.01"/></svg> FAQ</div>
                 </nav>
                 <div class="sb-foot">
@@ -800,6 +801,20 @@
                             <div class="empty-state"><div class="big"></div>Select an employee to view their profile and work updates.</div>
                         </div>
                     </div>
+                </div>
+
+                <!-- HR BOARD (HR + admin only): birthdays, internship windows, leave -->
+                <div class="page hidden" id="view-hrboard">
+                    <div class="toolbar">
+                        <div class="section-title">People overview</div>
+                        <div class="filter" style="gap:8px;flex-wrap:wrap;">
+                            <label>Department</label>
+                            <select id="hr-dept"><option value="all">All Departments</option></select>
+                            <button class="btn btn-ghost" id="hr-bday">🎂 Upcoming birthdays</button>
+                            <button class="btn btn-ghost" id="hr-intern">⏳ Internship ending</button>
+                        </div>
+                    </div>
+                    <div id="hr-table"></div>
                 </div>
 
                 <!-- FAQ / HELP (everyone; content scoped to the user's role) -->
@@ -1019,6 +1034,8 @@
             document.getElementById('nav-users').classList.toggle('hidden', !canViewUsers());
             document.getElementById('nav-perf').classList.toggle('hidden', !canViewPeople());
             document.getElementById('nav-projects').classList.toggle('hidden', !canManageUsers());
+            // HR Board is only for HR and admins.
+            document.getElementById('nav-hrboard').classList.toggle('hidden', !(isAdmin() || isHR()));
             try {
                 const { employees } = await api('/api/employees');
                 EMPLOYEES = employees;
@@ -1039,6 +1056,7 @@
             if (view === 'users' && !canViewUsers()) view = 'home';
             if (view === 'performance' && !canViewPeople()) view = 'home';
             if (view === 'projects' && !canManageUsers()) view = 'home';
+            if (view === 'hrboard' && !(isAdmin() || isHR())) view = 'home';
             // "project" (a single open project) highlights the Projects tab for
             // managers/admins, and Home for everyone else (their landing page).
             const highlight = view === 'project' ? (canManageUsers() ? 'projects' : 'home') : view;
@@ -1049,6 +1067,7 @@
             document.getElementById('view-mail').classList.toggle('hidden', view !== 'mail');
             document.getElementById('view-settings').classList.toggle('hidden', view !== 'settings');
             document.getElementById('view-users').classList.toggle('hidden', view !== 'users');
+            document.getElementById('view-hrboard').classList.toggle('hidden', view !== 'hrboard');
             document.getElementById('view-faq').classList.toggle('hidden', view !== 'faq');
             document.getElementById('view-perf').classList.toggle('hidden', view !== 'performance');
             const titles = {
@@ -1058,6 +1077,7 @@
                 mail: ['Leave', 'File your leave and track approvals'],
                 settings: ['Settings', 'Manage access and preferences'],
                 users: ['Users', 'Employee directory & work updates'],
+                hrboard: ['HR Board', 'Birthdays, internships & leave at a glance'],
                 performance: ['Performance', 'Who is actually working — engagement scores'],
                 faq: ['Help & FAQ', 'Answers tailored to your access level'],
             };
@@ -1076,6 +1096,7 @@
             if (view === 'mail') loadMail();
             if (view === 'settings') loadSettings();
             if (view === 'users') loadUsers();
+            if (view === 'hrboard') loadHrBoard();
             if (view === 'faq') loadFaq();
             if (view === 'performance') loadPerformance();
         }
@@ -1897,6 +1918,104 @@
         // ════════ MAIL / LEAVE ════════
         function fmtRange(a, b) { return a === b ? fmtDay(a) : fmtDay(a) + ' → ' + fmtDay(b); }
 
+        // ════════ HR BOARD (HR + admin): birthdays, internships, leave ════════
+        let HR_ROWS = [];
+        let HR_FILTER = { dept: 'all', sort: 'name' };
+
+        function hrParseDate(s) { return s ? new Date(String(s).slice(0, 10) + 'T00:00:00') : null; }
+        // Days until the next occurrence of a birthday (0 = today).
+        function daysToBirthday(dob) {
+            const d = hrParseDate(dob); if (!d) return null;
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            let next = new Date(today.getFullYear(), d.getMonth(), d.getDate());
+            if (next < today) next = new Date(today.getFullYear() + 1, d.getMonth(), d.getDate());
+            return Math.round((next - today) / 86400000);
+        }
+        // Percentage of the internship period completed (start = joining date).
+        function internshipInfo(joining, end) {
+            const s = hrParseDate(joining), e = hrParseDate(end);
+            if (!e) return null;
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const daysLeft = Math.round((e - today) / 86400000);
+            let pct = 0;
+            if (s && e > s) pct = Math.max(0, Math.min(100, Math.round((today - s) / (e - s) * 100)));
+            else pct = today >= e ? 100 : 0;
+            return { pct, daysLeft, end: e };
+        }
+
+        async function loadHrBoard() {
+            const box = document.getElementById('hr-table');
+            box.innerHTML = '<div class="no-entries">Loading…</div>';
+            try { HR_ROWS = (await api('/api/reports/hr-overview')).employees; }
+            catch (e) { box.innerHTML = `<div class="no-entries">${esc(e.message)}</div>`; return; }
+            // Department options
+            const sel = document.getElementById('hr-dept');
+            const depts = [...new Set(HR_ROWS.map(r => r.department).filter(Boolean))].sort();
+            sel.innerHTML = '<option value="all">All Departments</option>' + depts.map(d => `<option value="${esc(d)}" ${HR_FILTER.dept === d ? 'selected' : ''}>${esc(d)}</option>`).join('');
+            sel.onchange = () => { HR_FILTER.dept = sel.value; renderHrBoard(); };
+            const bdayBtn = document.getElementById('hr-bday');
+            const internBtn = document.getElementById('hr-intern');
+            bdayBtn.onclick = () => { HR_FILTER.sort = HR_FILTER.sort === 'bday' ? 'name' : 'bday'; renderHrBoard(); };
+            internBtn.onclick = () => { HR_FILTER.sort = HR_FILTER.sort === 'intern' ? 'name' : 'intern'; renderHrBoard(); };
+            renderHrBoard();
+        }
+
+        function renderHrBoard() {
+            const box = document.getElementById('hr-table');
+            document.getElementById('hr-bday').classList.toggle('btn-primary', HR_FILTER.sort === 'bday');
+            document.getElementById('hr-bday').classList.toggle('btn-ghost', HR_FILTER.sort !== 'bday');
+            document.getElementById('hr-intern').classList.toggle('btn-primary', HR_FILTER.sort === 'intern');
+            document.getElementById('hr-intern').classList.toggle('btn-ghost', HR_FILTER.sort !== 'intern');
+
+            let rows = HR_ROWS.slice();
+            if (HR_FILTER.dept !== 'all') rows = rows.filter(r => r.department === HR_FILTER.dept);
+            if (HR_FILTER.sort === 'intern') rows = rows.filter(r => r.internship_end_date);
+
+            rows = rows.map(r => ({ ...r, _b: daysToBirthday(r.date_of_birth), _i: internshipInfo(r.joining_date, r.internship_end_date) }));
+            if (HR_FILTER.sort === 'bday') rows.sort((a, b) => (a._b == null ? 1e9 : a._b) - (b._b == null ? 1e9 : b._b));
+            else if (HR_FILTER.sort === 'intern') rows.sort((a, b) => (a._i ? a._i.daysLeft : 1e9) - (b._i ? b._i.daysLeft : 1e9));
+            else rows.sort((a, b) => a.name.localeCompare(b.name));
+
+            if (!rows.length) { box.innerHTML = '<div class="no-entries">No employees match this filter.</div>'; return; }
+
+            const bdayCell = (r) => {
+                if (!r.date_of_birth) return '<span class="muted">—</span>';
+                const d = hrParseDate(r.date_of_birth);
+                const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                if (r._b === 0) return `<b style="color:var(--brand)">🎂 Today</b><div class="muted" style="font-size:11px;">${md}</div>`;
+                const soon = r._b <= 7;
+                return `<span>${md}</span><div class="muted" style="font-size:11px;${soon ? 'color:var(--warn);font-weight:600;' : ''}">in ${r._b} day${r._b === 1 ? '' : 's'}</div>`;
+            };
+            const internCell = (r) => {
+                if (!r._i) return '<span class="muted">—</span>';
+                const { pct, daysLeft } = r._i;
+                const col = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--warn)' : 'var(--green)';
+                const left = daysLeft < 0 ? 'ended' : daysLeft === 0 ? 'ends today' : daysLeft + 'd left';
+                return `${r.internship_tenure ? `<div style="font-size:12px;margin-bottom:4px;">${esc(r.internship_tenure)}</div>` : ''}
+                    <div style="height:8px;border-radius:6px;background:var(--track);overflow:hidden;max-width:180px;"><div style="height:100%;width:${pct}%;background:${col};border-radius:6px;"></div></div>
+                    <div class="muted" style="font-size:11px;margin-top:3px;">${pct}% · ${left}</div>`;
+            };
+            const lastCell = (r) => r.internship_end_date ? fmtDay(String(r.internship_end_date).slice(0, 10)) : '<span class="muted">—</span>';
+            const leaveCell = (r) => {
+                const n = r.leaves_this_month || 0;
+                const over = n > 5;
+                return `<b style="${over ? 'color:var(--red);' : ''}">${n}</b><div class="muted" style="font-size:11px;">this month${over ? ' · over' : ''}</div>`;
+            };
+
+            box.innerHTML = `<div class="ptable"><div class="pt-scroll"><table>
+                <thead><tr>
+                    <th>Name</th><th>Internship</th><th>Last date</th><th>Birthday</th><th>Leave (mo.)</th>
+                </tr></thead>
+                <tbody>${rows.map(r => `<tr style="cursor:default;">
+                    <td><div class="pt-name">${esc(r.name)}</div><div class="muted" style="font-size:11px;">${esc(r.employee_code || '')} · ${esc(r.department || '')}</div></td>
+                    <td style="min-width:200px;">${internCell(r)}</td>
+                    <td>${lastCell(r)}</td>
+                    <td>${bdayCell(r)}</td>
+                    <td>${leaveCell(r)}</td>
+                </tr>`).join('')}</tbody>
+            </table></div></div>`;
+        }
+
         // ── Remarks ──
         // The current user's remarks (feedback from admins/HR), opened from the
         // Home top-right "Remark" button.
@@ -2577,6 +2696,8 @@
                     <div class="field"><label>Joining date</label><input type="date" id="pd-join" /></div>
                     <div class="field"><label>Internship tenure <span style="color:var(--ink-soft);font-weight:400;">(leave blank if not an intern)</span></label>
                         <input type="text" id="pd-tenure" placeholder="e.g. Jan 2025 – Jun 2025, or 6 months" /></div>
+                    <div class="field"><label>Internship last date <span style="color:var(--ink-soft);font-weight:400;">(if an intern)</span></label>
+                        <input type="date" id="pd-intend" /></div>
                     <div class="form-error hidden" id="pd-err"></div>
                     <div class="modal-actions"><button class="btn btn-primary" id="pd-save">Save & continue</button></div>
                 </div>`);
@@ -2589,7 +2710,8 @@
                 const btn = document.getElementById('pd-save'); btn.disabled = true; btn.textContent = 'Saving…';
                 try {
                     await api('/api/employees/me/personal-details', { method: 'PUT', body: JSON.stringify({
-                        dateOfBirth: dob, joiningDate: join, internshipTenure: tenure }) });
+                        dateOfBirth: dob, joiningDate: join, internshipTenure: tenure,
+                        internshipEndDate: document.getElementById('pd-intend').value }) });
                     CURRENT_USER.needsPersonalDetails = false; closeModal(); await enterApp();
                 } catch (e) { err.textContent = '' + e.message; err.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Save & continue'; }
             };
@@ -3360,7 +3482,10 @@
                         <div class="field"><label>Date of birth</label><input type="date" id="eu-dob" value="${emp.date_of_birth ? String(emp.date_of_birth).slice(0, 10) : ''}"></div>
                         <div class="field"><label>Joining date</label><input type="date" id="eu-join" value="${emp.joining_date ? String(emp.joining_date).slice(0, 10) : ''}"></div>
                     </div>
-                    <div class="field"><label>Internship tenure</label><input type="text" id="eu-tenure" value="${esc(emp.internship_tenure || '')}" placeholder="e.g. Jan 2025 – Jun 2025 (blank if none)"></div>
+                    <div class="row2">
+                        <div class="field"><label>Internship tenure</label><input type="text" id="eu-tenure" value="${esc(emp.internship_tenure || '')}" placeholder="e.g. Jan 2025 – Jun 2025 (blank if none)"></div>
+                        <div class="field"><label>Internship last date</label><input type="date" id="eu-intend" value="${emp.internship_end_date ? String(emp.internship_end_date).slice(0, 10) : ''}"></div>
+                    </div>
                     <div class="field"><label>Permanent access level</label>
                         <select id="eu-role" ${isSelf ? 'disabled' : ''}>${roles.map(([v, l]) => `<option value="${v}" ${v === emp.access_role ? 'selected' : ''}>${l}</option>`).join('')}</select>
                         ${isSelf ? '<div class="muted" style="margin-top:6px;">You can’t change your own access level.</div>' : ''}
@@ -3380,6 +3505,7 @@
                     dateOfBirth: document.getElementById('eu-dob').value,
                     joiningDate: document.getElementById('eu-join').value,
                     internshipTenure: document.getElementById('eu-tenure').value.trim(),
+                    internshipEndDate: document.getElementById('eu-intend').value,
                 };
                 if (!isSelf) body.accessRole = document.getElementById('eu-role').value;
                 if (body.name.length < 2) { err.textContent = 'Name must be at least 2 characters.'; err.classList.remove('hidden'); return; }

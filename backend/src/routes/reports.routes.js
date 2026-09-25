@@ -123,7 +123,7 @@ router.get('/employees/:id', requireAuth, requireRole('admin', 'hr', 'manager'),
   if (!(await ensureCanViewEmployee(req, res, id))) return;
 
   const { rows: empRows } = await db.query(
-    'SELECT id, employee_code, name, department, job_title, email, access_role, locked_until, failed_attempts, date_of_birth, joining_date, internship_tenure FROM employees WHERE id = $1',
+    'SELECT id, employee_code, name, department, job_title, email, access_role, locked_until, failed_attempts, date_of_birth, joining_date, internship_tenure, internship_end_date FROM employees WHERE id = $1',
     [id]
   );
   const employee = empRows[0];
@@ -277,6 +277,42 @@ router.get('/employees/:id/daily', requireAuth, requireRole('admin', 'hr', 'mana
     days.push({ date: iso, score: dailyScore(byDate[iso] || null) });
   }
   res.json({ days });
+});
+
+// GET /api/reports/hr-overview — HR/admin only. One row per active employee for
+// the HR board: birthday, internship window (joining → last date) and how many
+// leave days they've taken this calendar month. Used to spot upcoming birthdays
+// and internships that are about to end.
+router.get('/hr-overview', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
+  const { rows: employees } = await db.query(
+    `SELECT id, employee_code, name, department, job_title,
+            date_of_birth, joining_date, internship_end_date, internship_tenure
+     FROM employees WHERE is_active = true ORDER BY name`
+  );
+
+  // Approved leave days that fall in the current calendar month, per employee.
+  const { rows: leaveRows } = await db.query(
+    `SELECT employee_id,
+            COUNT(*)::int AS days
+     FROM (
+       SELECT lr.employee_id,
+              generate_series(
+                GREATEST(lr.start_date, date_trunc('month', CURRENT_DATE)::date),
+                LEAST(lr.end_date, (date_trunc('month', CURRENT_DATE) + interval '1 month - 1 day')::date),
+                interval '1 day'
+              ) AS d
+       FROM leave_requests lr
+       WHERE lr.status = 'approved'
+         AND lr.start_date <= (date_trunc('month', CURRENT_DATE) + interval '1 month - 1 day')::date
+         AND lr.end_date   >= date_trunc('month', CURRENT_DATE)::date
+     ) x
+     GROUP BY employee_id`
+  );
+  const leaveByEmp = {};
+  leaveRows.forEach((r) => { leaveByEmp[r.employee_id] = r.days; });
+
+  const result = employees.map((e) => ({ ...e, leaves_this_month: leaveByEmp[e.id] || 0 }));
+  res.json({ employees: result });
 });
 
 module.exports = router;
