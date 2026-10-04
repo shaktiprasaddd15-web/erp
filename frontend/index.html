@@ -963,6 +963,15 @@
             const dept = String(e.department || '').trim().toLowerCase();
             return role === 'hr' || dept === 'hr';
         }
+        // The CHRO (Shatakshi) — identified by job title or name. FEC members may
+        // only file their leave to the CHRO.
+        function isCHRO(e) {
+            if (!e) return false;
+            const t = String(e.job_title || e.jobTitle || '').toLowerCase();
+            const n = String(e.name || '').toLowerCase();
+            return /chro|chief human/.test(t) || /shatakshi/.test(n);
+        }
+        function isFEC(e) { return e && String(e.department || '').trim().toUpperCase() === 'FEC'; }
         // HR and admin see the stipend field and the full leave history.
         function canSeeStipend() { return CURRENT_USER && ['admin', 'hr'].includes(CURRENT_USER.accessRole); }
         // Performance is admin/HR only. The Users directory is open to managers
@@ -1018,7 +1027,8 @@
                     department: u.department, jobTitle: u.job_title, accessRole: u.access_role,
                     baseRole: u.base_role || u.access_role, tempAccess: u.temp_access || null,
                     mustResetPassword: u.must_reset_pw,
-                    needsPersonalDetails: !u.personal_details_done };
+                    needsPersonalDetails: !u.personal_details_done,
+                    needsInternshipInfo: u.access_role !== 'admin' && !u.internship_asked };
                 await postAuthFlow();
             } catch (e) { TOKEN = null; sessionStorage.removeItem('wt_token'); }
         })();
@@ -1971,7 +1981,7 @@
             if (HR_FILTER.dept !== 'all') rows = rows.filter(r => r.department === HR_FILTER.dept);
             if (HR_FILTER.sort === 'intern') rows = rows.filter(r => r.internship_end_date);
 
-            rows = rows.map(r => ({ ...r, _b: daysToBirthday(r.date_of_birth), _i: internshipInfo(r.joining_date, r.internship_end_date) }));
+            rows = rows.map(r => ({ ...r, _b: daysToBirthday(r.date_of_birth), _i: internshipInfo(r.internship_start_date || r.joining_date, r.internship_end_date) }));
             if (HR_FILTER.sort === 'bday') rows.sort((a, b) => (a._b == null ? 1e9 : a._b) - (b._b == null ? 1e9 : b._b));
             else if (HR_FILTER.sort === 'intern') rows.sort((a, b) => (a._i ? a._i.daysLeft : 1e9) - (b._i ? b._i.daysLeft : 1e9));
             else rows.sort((a, b) => a.name.localeCompare(b.name));
@@ -2131,9 +2141,15 @@
             // Populate the HR chooser with the whole HR team — anyone with the HR
             // access role OR in the HR department (e.g. HR interns) — who's active.
             const hrSel = document.getElementById('lv-hr');
-            const hrs = EMPLOYEES.filter(e => isHRPerson(e) && e.is_active !== false);
+            let hrs = EMPLOYEES.filter(e => isHRPerson(e) && e.is_active !== false);
+            // FEC members may only file their leave to the CHRO (Shatakshi).
+            const fecLock = isFEC(CURRENT_USER);
+            if (fecLock) {
+                const chro = EMPLOYEES.filter(e => isCHRO(e) && e.is_active !== false);
+                if (chro.length) hrs = chro;
+            }
             hrSel.innerHTML = hrs.length
-                ? '<option value="">Choose your HR…</option>' + hrs.map(h => `<option value="${h.id}">${esc(h.name)}</option>`).join('')
+                ? (fecLock ? '' : '<option value="">Choose your HR…</option>') + hrs.map(h => `<option value="${h.id}">${esc(h.name)}${fecLock ? ' (CHRO)' : ''}</option>`).join('')
                 : '<option value="">No HR available — ask an admin</option>';
             loadMyLeaves();
             loadMyLeaveUsage();
@@ -2683,6 +2699,7 @@
         async function postAuthFlow() {
             if (CURRENT_USER.mustResetPassword) return openResetModal();
             if (CURRENT_USER.needsPersonalDetails) return openDetailsModal();
+            if (CURRENT_USER.needsInternshipInfo) return openInternshipModal();
             await enterApp();
         }
 
@@ -2696,8 +2713,10 @@
                     <div class="field"><label>Joining date</label><input type="date" id="pd-join" /></div>
                     <div class="field"><label>Internship tenure <span style="color:var(--ink-soft);font-weight:400;">(leave blank if not an intern)</span></label>
                         <input type="text" id="pd-tenure" placeholder="e.g. Jan 2025 – Jun 2025, or 6 months" /></div>
-                    <div class="field"><label>Internship last date <span style="color:var(--ink-soft);font-weight:400;">(if an intern)</span></label>
-                        <input type="date" id="pd-intend" /></div>
+                    <div class="row2">
+                        <div class="field"><label>Internship start date <span style="color:var(--ink-soft);font-weight:400;">(if intern)</span></label><input type="date" id="pd-intstart" /></div>
+                        <div class="field"><label>Internship last date <span style="color:var(--ink-soft);font-weight:400;">(if intern)</span></label><input type="date" id="pd-intend" /></div>
+                    </div>
                     <div class="form-error hidden" id="pd-err"></div>
                     <div class="modal-actions"><button class="btn btn-primary" id="pd-save">Save & continue</button></div>
                 </div>`);
@@ -2706,13 +2725,57 @@
                 const dob = document.getElementById('pd-dob').value;
                 const join = document.getElementById('pd-join').value;
                 const tenure = document.getElementById('pd-tenure').value;
+                const iStart = document.getElementById('pd-intstart').value;
+                const iEnd = document.getElementById('pd-intend').value;
                 if (!dob || !join) { err.textContent = 'Please enter your date of birth and joining date.'; err.classList.remove('hidden'); return; }
+                if (iStart && iEnd && iEnd < iStart) { err.textContent = 'Internship last date cannot be before the start date.'; err.classList.remove('hidden'); return; }
                 const btn = document.getElementById('pd-save'); btn.disabled = true; btn.textContent = 'Saving…';
                 try {
                     await api('/api/employees/me/personal-details', { method: 'PUT', body: JSON.stringify({
                         dateOfBirth: dob, joiningDate: join, internshipTenure: tenure,
-                        internshipEndDate: document.getElementById('pd-intend').value }) });
-                    CURRENT_USER.needsPersonalDetails = false; closeModal(); await enterApp();
+                        internshipStartDate: iStart, internshipEndDate: iEnd }) });
+                    CURRENT_USER.needsPersonalDetails = false; CURRENT_USER.needsInternshipInfo = false;
+                    closeModal(); await postAuthFlow();
+                } catch (e) { err.textContent = '' + e.message; err.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Save & continue'; }
+            };
+        }
+
+        // One-time internship re-prompt (non-admins only): captures the internship
+        // start & last date so the HR board can show the window and % completed.
+        // Admins never see this. Non-interns tick "I'm not an intern" to skip.
+        function openInternshipModal() {
+            openModal(`
+                <div class="modal-head"><h3 class="serif">Your internship dates</h3></div>
+                <div class="modal-body">
+                    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:16px;">So HR can track internship timelines, please add your internship start and last date. One-time step.</p>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:14px;cursor:pointer;">
+                        <input type="checkbox" id="in-not" style="width:16px;height:16px;accent-color:var(--brand);"> I'm not an intern
+                    </label>
+                    <div id="in-fields">
+                        <div class="row2">
+                            <div class="field"><label>Internship start date</label><input type="date" id="in-start" /></div>
+                            <div class="field"><label>Internship last date</label><input type="date" id="in-end" /></div>
+                        </div>
+                        <div class="field"><label>Tenure <span style="color:var(--ink-soft);font-weight:400;">(optional)</span></label><input type="text" id="in-tenure" placeholder="e.g. 6 months" /></div>
+                    </div>
+                    <div class="form-error hidden" id="in-err"></div>
+                    <div class="modal-actions"><button class="btn btn-primary" id="in-save">Save & continue</button></div>
+                </div>`);
+            const chk = document.getElementById('in-not');
+            chk.onchange = () => { document.getElementById('in-fields').style.display = chk.checked ? 'none' : 'block'; };
+            document.getElementById('in-save').onclick = async () => {
+                const err = document.getElementById('in-err'); err.classList.add('hidden');
+                const notIntern = chk.checked;
+                const start = notIntern ? '' : document.getElementById('in-start').value;
+                const end = notIntern ? '' : document.getElementById('in-end').value;
+                const tenure = notIntern ? '' : document.getElementById('in-tenure').value;
+                if (!notIntern && (!start || !end)) { err.textContent = 'Enter both dates, or tick “I am not an intern”.'; err.classList.remove('hidden'); return; }
+                if (start && end && end < start) { err.textContent = 'Last date cannot be before the start date.'; err.classList.remove('hidden'); return; }
+                const btn = document.getElementById('in-save'); btn.disabled = true; btn.textContent = 'Saving…';
+                try {
+                    await api('/api/employees/me/internship', { method: 'PUT', body: JSON.stringify({
+                        internshipStartDate: start, internshipEndDate: end, internshipTenure: tenure }) });
+                    CURRENT_USER.needsInternshipInfo = false; closeModal(); await enterApp();
                 } catch (e) { err.textContent = '' + e.message; err.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Save & continue'; }
             };
         }
@@ -3484,7 +3547,11 @@
                     </div>
                     <div class="row2">
                         <div class="field"><label>Internship tenure</label><input type="text" id="eu-tenure" value="${esc(emp.internship_tenure || '')}" placeholder="e.g. Jan 2025 – Jun 2025 (blank if none)"></div>
+                        <div class="field"><label>Internship start date</label><input type="date" id="eu-intstart" value="${emp.internship_start_date ? String(emp.internship_start_date).slice(0, 10) : ''}"></div>
+                    </div>
+                    <div class="row2">
                         <div class="field"><label>Internship last date</label><input type="date" id="eu-intend" value="${emp.internship_end_date ? String(emp.internship_end_date).slice(0, 10) : ''}"></div>
+                        <div class="field"></div>
                     </div>
                     <div class="field"><label>Permanent access level</label>
                         <select id="eu-role" ${isSelf ? 'disabled' : ''}>${roles.map(([v, l]) => `<option value="${v}" ${v === emp.access_role ? 'selected' : ''}>${l}</option>`).join('')}</select>
@@ -3505,6 +3572,7 @@
                     dateOfBirth: document.getElementById('eu-dob').value,
                     joiningDate: document.getElementById('eu-join').value,
                     internshipTenure: document.getElementById('eu-tenure').value.trim(),
+                    internshipStartDate: document.getElementById('eu-intstart').value,
                     internshipEndDate: document.getElementById('eu-intend').value,
                 };
                 if (!isSelf) body.accessRole = document.getElementById('eu-role').value;

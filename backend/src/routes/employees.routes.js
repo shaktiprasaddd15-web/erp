@@ -68,22 +68,47 @@ router.post('/', requireAuth, requireRole('manager', 'admin'), async (req, res) 
 // won't appear again. Date of birth and joining date are required; internship
 // tenure is free text and optional (blank for full-time staff).
 router.put('/me/personal-details', requireAuth, async (req, res) => {
-  const { dateOfBirth, joiningDate, internshipTenure, internshipEndDate } = req.body || {};
+  const { dateOfBirth, joiningDate, internshipTenure, internshipStartDate, internshipEndDate } = req.body || {};
   const dateRe = /^\d{4}-\d{2}-\d{2}$/;
   if (!dateRe.test(dateOfBirth || '')) return res.status(400).json({ error: 'A valid date of birth is required.' });
   if (!dateRe.test(joiningDate || '')) return res.status(400).json({ error: 'A valid joining date is required.' });
+  if (internshipStartDate && !dateRe.test(internshipStartDate)) return res.status(400).json({ error: 'Invalid internship start date.' });
   if (internshipEndDate && !dateRe.test(internshipEndDate)) return res.status(400).json({ error: 'Invalid internship last date.' });
   const tenure = (internshipTenure == null ? '' : String(internshipTenure)).trim().slice(0, 120);
 
   await db.query(
     `UPDATE employees
-        SET date_of_birth = $1, joining_date = $2, internship_tenure = $3, internship_end_date = $4,
-            personal_details_done = true, updated_at = now()
-      WHERE id = $5`,
-    [dateOfBirth, joiningDate, tenure || null, internshipEndDate || null, req.user.id]
+        SET date_of_birth = $1, joining_date = $2, internship_tenure = $3,
+            internship_start_date = $4, internship_end_date = $5,
+            personal_details_done = true, internship_asked = true, updated_at = now()
+      WHERE id = $6`,
+    [dateOfBirth, joiningDate, tenure || null, internshipStartDate || null, internshipEndDate || null, req.user.id]
   );
   res.json({ ok: true });
 });
+
+// PUT /api/employees/me/internship — a non-admin fills in (or skips) their
+// internship window via the one-time re-prompt. Marks internship_asked so the
+// popup won't appear again, whether or not they are actually an intern.
+router.put('/me/internship', requireAuth, async (req, res) => {
+  const { internshipStartDate, internshipEndDate, internshipTenure } = req.body || {};
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  if (internshipStartDate && !dateRe.test(internshipStartDate)) return res.status(400).json({ error: 'Invalid internship start date.' });
+  if (internshipEndDate && !dateRe.test(internshipEndDate)) return res.status(400).json({ error: 'Invalid internship last date.' });
+  if (internshipStartDate && internshipEndDate && internshipEndDate < internshipStartDate) {
+    return res.status(400).json({ error: 'Internship last date cannot be before the start date.' });
+  }
+  const tenure = (internshipTenure == null ? '' : String(internshipTenure)).trim().slice(0, 120);
+  await db.query(
+    `UPDATE employees
+        SET internship_start_date = $1, internship_end_date = $2, internship_tenure = $3,
+            internship_asked = true, updated_at = now()
+      WHERE id = $4`,
+    [internshipStartDate || null, internshipEndDate || null, tenure || null, req.user.id]
+  );
+  res.json({ ok: true });
+});
+
 
 // POST /api/employees/:id/reset-password — admin only. Managers can create
 // accounts but cannot edit or reset existing ones.
@@ -205,6 +230,10 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   if (b.internshipEndDate !== undefined) {
     if (b.internshipEndDate && !dateRe.test(b.internshipEndDate)) return res.status(400).json({ error: 'Invalid internship last date.' });
     put('internship_end_date', b.internshipEndDate || null);
+  }
+  if (b.internshipStartDate !== undefined) {
+    if (b.internshipStartDate && !dateRe.test(b.internshipStartDate)) return res.status(400).json({ error: 'Invalid internship start date.' });
+    put('internship_start_date', b.internshipStartDate || null);
   }
   if (!sets.length) return res.status(400).json({ error: 'Nothing to update.' });
 

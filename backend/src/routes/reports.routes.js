@@ -123,7 +123,7 @@ router.get('/employees/:id', requireAuth, requireRole('admin', 'hr', 'manager'),
   if (!(await ensureCanViewEmployee(req, res, id))) return;
 
   const { rows: empRows } = await db.query(
-    'SELECT id, employee_code, name, department, job_title, email, access_role, locked_until, failed_attempts, date_of_birth, joining_date, internship_tenure, internship_end_date FROM employees WHERE id = $1',
+    'SELECT id, employee_code, name, department, job_title, email, access_role, locked_until, failed_attempts, date_of_birth, joining_date, internship_tenure, internship_start_date, internship_end_date FROM employees WHERE id = $1',
     [id]
   );
   const employee = empRows[0];
@@ -286,7 +286,7 @@ router.get('/employees/:id/daily', requireAuth, requireRole('admin', 'hr', 'mana
 router.get('/hr-overview', requireAuth, requireRole('admin', 'hr'), async (req, res) => {
   const { rows: employees } = await db.query(
     `SELECT id, employee_code, name, department, job_title,
-            date_of_birth, joining_date, internship_end_date, internship_tenure
+            date_of_birth, joining_date, internship_start_date, internship_end_date, internship_tenure
      FROM employees WHERE is_active = true ORDER BY name`
   );
 

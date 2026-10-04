@@ -75,6 +75,16 @@ router.post('/', requireAuth, wrap(async (req, res) => {
     return res.status(400).json({ error: 'Please choose an HR to submit your leave to.' });
   }
 
+  // FEC members may only file their leave to the CHRO (Shatakshi).
+  const { rows: meRows } = await db.query('SELECT department FROM employees WHERE id = $1', [req.user.id]);
+  if (String(meRows[0]?.department || '').trim().toUpperCase() === 'FEC') {
+    const { rows: chk } = await db.query(
+      "SELECT 1 FROM employees WHERE id = $1 AND (job_title ILIKE '%chro%' OR job_title ILIKE '%chief human%' OR name ILIKE 'shatakshi%')",
+      [hr.id]
+    );
+    if (!chk[0]) return res.status(403).json({ error: 'FEC members can only submit leave to the CHRO.' });
+  }
+
   // Filed leaves start as 'pending' (see migration default) and must be approved
   // by the chosen HR or an admin before they count.
   const { rows } = await db.query(
