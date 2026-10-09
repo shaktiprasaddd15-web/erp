@@ -644,6 +644,65 @@
         .cal-dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
         .cal-dot.leave { background: #F6C915; }
         .cal-dot.missed { background: var(--red); }
+        /* ── CHAT ── */
+        #view-chat.page { padding: 0; max-width: none; height: calc(100vh - 62px); }
+        .ck-wrap { display: flex; height: 100%; min-height: 0; }
+        .ck-list-pane { width: 300px; border-right: 1px solid var(--border); background: var(--card); display: flex; flex-direction: column; flex-shrink: 0; }
+        .ck-search { padding: 12px 14px 8px; }
+        .ck-search input { width: 100%; border: 1px solid var(--border); background: var(--input-bg); border-radius: 9px; padding: 9px 12px; font-size: 13px; color: var(--ink); outline: none; }
+        .ck-search input:focus { border-color: var(--brand); }
+        .ck-tabs { display: flex; gap: 6px; padding: 0 14px 8px; }
+        .ck-tab { flex: 1; text-align: center; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); padding: 7px; border-radius: 9px; cursor: pointer; }
+        .ck-tab.active { background: var(--brand-soft); color: var(--brand-deep); }
+        .ck-list { flex: 1; overflow-y: auto; padding: 0 8px 10px; }
+        .ck-sec { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); padding: 12px 10px 4px; }
+        .ck-item { display: flex; gap: 11px; padding: 10px; border-radius: 11px; cursor: pointer; align-items: center; }
+        .ck-item:hover { background: var(--bg); }
+        .ck-item.active { background: var(--brand-soft); }
+        .ck-av { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+        .ck-main { min-width: 0; flex: 1; }
+        .ck-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .ck-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ck-time { font-size: 10.5px; color: var(--ink-soft); flex-shrink: 0; }
+        .ck-last { font-size: 12px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+        .ck-unread { background: var(--brand); color: #fff; font-size: 10px; font-weight: 700; border-radius: 20px; padding: 1px 7px; flex-shrink: 0; }
+        .ck-thread { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+        .ck-head { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
+        .ck-head .ti { min-width: 0; flex: 1; }
+        .ck-head .tn { font-size: 15px; font-weight: 700; }
+        .ck-head .tm { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+        .ck-note { font-size: 11px; background: var(--warn-soft); color: var(--warn); padding: 6px 20px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border); }
+        .ck-msgs { flex: 1; overflow-y: auto; padding: 20px 22px; display: flex; flex-direction: column; }
+        .ck-row { display: flex; gap: 10px; margin-top: 12px; max-width: 78%; }
+        .ck-row.me { align-self: flex-end; flex-direction: row-reverse; }
+        .ck-row .ck-av { width: 32px; height: 32px; border-radius: 9px; font-size: 11px; }
+        .ck-mcol { min-width: 0; }
+        .ck-who { font-size: 11.5px; font-weight: 600; color: var(--ink-soft); margin-bottom: 4px; }
+        .ck-row.me .ck-who { text-align: right; }
+        .ck-bub { padding: 9px 13px; border-radius: 14px; font-size: 13.5px; line-height: 1.5; word-wrap: break-word; position: relative; }
+        .ck-row.them .ck-bub { background: var(--brand-soft); border-top-left-radius: 4px; }
+        .ck-row.me .ck-bub { background: var(--grad-brand, var(--brand)); color: #fff; border-top-right-radius: 4px; }
+        .ck-mtime { font-size: 10px; color: var(--ink-soft); margin-top: 3px; }
+        .ck-row.me .ck-mtime { text-align: right; }
+        .ck-mention { background: var(--brand-soft); color: var(--brand-deep); font-weight: 600; border-radius: 4px; padding: 0 3px; }
+        .ck-row.me .ck-mention { background: rgba(255,255,255,.25); color: #fff; }
+        .ck-report { opacity: 0; background: none; border: none; color: var(--ink-soft); cursor: pointer; font-size: 11px; margin-top: 2px; }
+        .ck-row:hover .ck-report { opacity: 1; }
+        .ck-report:hover { color: var(--red); }
+        .ck-composer { background: var(--card); border-top: 1px solid var(--border); padding: 12px 18px; display: flex; gap: 10px; align-items: flex-end; }
+        .ck-composer textarea { flex: 1; border: 1px solid var(--border); background: var(--input-bg); border-radius: 12px; padding: 11px 14px; font-size: 14px; color: var(--ink); outline: none; resize: none; max-height: 120px; font-family: inherit; }
+        .ck-composer textarea:focus { border-color: var(--brand); }
+        .ck-send { background: var(--grad-brand, var(--brand)); color: #fff; border: none; border-radius: 11px; width: 42px; height: 42px; cursor: pointer; display: grid; place-items: center; flex-shrink: 0; }
+        .ck-send svg { width: 19px; height: 19px; }
+        .ck-empty { margin: auto; text-align: center; color: var(--ink-soft); font-size: 14px; padding: 40px; }
+        .sb-link .ck-navbadge { margin-left: auto; background: var(--red); color: #fff; font-size: 10px; font-weight: 700; border-radius: 20px; padding: 1px 7px; }
+        .sb-link.active .ck-navbadge { background: rgba(255,255,255,.3); }
+        @media (max-width: 760px) {
+            .ck-list-pane { width: 100%; }
+            #view-chat .ck-thread { display: none; }
+            #view-chat.show-thread .ck-list-pane { display: none; }
+            #view-chat.show-thread .ck-thread { display: flex; }
+        }
     </style>
 </head>
 <body>
@@ -689,6 +748,7 @@
                     <div class="sb-link hidden" data-view="users" id="nav-users"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3 2.6-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.2A3 3 0 0 1 16 11"/><path d="M15.5 15c2.6.3 4.5 2.3 4.5 5"/></svg> Users</div>
                     <div class="sb-link hidden" data-view="hrboard" id="nav-hrboard"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg> HR Board</div>
                     <div class="sb-link" data-view="faq" id="nav-faq"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3"/><path d="M12 17h.01"/></svg> FAQ</div>
+                    <div class="sb-link" data-view="chat" id="nav-chat"><svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Chat <span class="ck-navbadge hidden" id="ck-navbadge"></span></div>
                 </nav>
                 <div class="sb-foot">
                     <div class="sb-user"><b id="sb-name"></b><span id="sb-role"></span></div>
@@ -822,6 +882,30 @@
                     <div class="faq-wrap" id="faq-wrap"></div>
                 </div>
 
+                <!-- CHAT (everyone): DMs + project / company channels -->
+                <div class="page hidden" id="view-chat">
+                    <div class="ck-wrap">
+                        <div class="ck-list-pane">
+                            <div class="ck-search"><input id="ck-search" placeholder="Search people & channels…" oninput="renderChatList()"></div>
+                            <div class="ck-tabs">
+                                <div class="ck-tab active" data-cktab="all" onclick="chatTab('all')">All</div>
+                                <div class="ck-tab" data-cktab="dm" onclick="chatTab('dm')">Direct</div>
+                                <div class="ck-tab" data-cktab="channel" onclick="chatTab('channel')">Channels</div>
+                            </div>
+                            <div class="ck-list" id="ck-list"></div>
+                        </div>
+                        <div class="ck-thread">
+                            <div class="ck-head" id="ck-head"></div>
+                            <div class="ck-note hidden" id="ck-note"></div>
+                            <div class="ck-msgs" id="ck-msgs"><div class="ck-empty">Select a conversation to start messaging.</div></div>
+                            <div class="ck-composer hidden" id="ck-composer-wrap">
+                                <textarea id="ck-composer" rows="1" placeholder="Write a professional message…  use @ to tag" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}" oninput="ckAutosize(this)"></textarea>
+                                <button class="ck-send" onclick="sendChat()"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- PERFORMANCE (managers/admins) -->
                 <div class="page hidden" id="view-perf">
                     <div class="toolbar">
@@ -879,6 +963,7 @@
         let TOKEN = sessionStorage.getItem('wt_token') || null;
         let CURRENT_USER = null;
         let EMPLOYEES = [];          // full directory {id,name,employee_code,department,job_title}
+        let CURRENT_VIEW = 'home';   // which section is showing (for chat polling)
         let DEPARTMENTS = [];
         let CURRENT_PROJECT = null;  // the project currently open in the project view (or null)
         let LEAVE_HISTORY = [];      // last-loaded leave rows in the Leave history/team panel
@@ -1013,6 +1098,8 @@
 
         document.getElementById('logout-btn').onclick = () => {
             TOKEN = null; CURRENT_USER = null; sessionStorage.removeItem('wt_token');
+            stopChatPolling(); if (window._chatBadgeTimer) { clearInterval(window._chatBadgeTimer); window._chatBadgeTimer = null; }
+            CHAT = { convs: [], active: null, lastId: 0, poll: null, tab: 'all', lastMsgs: [] };
             document.getElementById('app-screen').style.display = 'none';
             document.getElementById('auth-screen').style.display = 'flex';
             closeModal();
@@ -1053,6 +1140,9 @@
             } catch (e) { EMPLOYEES = []; DEPARTMENTS = []; }
             populateDeptFilters();
             registerSW();   // ready the service worker for web-push notifications
+            updateChatBadge();
+            if (window._chatBadgeTimer) clearInterval(window._chatBadgeTimer);
+            window._chatBadgeTimer = setInterval(() => { if (CURRENT_VIEW !== 'chat') updateChatBadge(); }, 20000);
             switchView('home');
         }
 
@@ -1079,6 +1169,7 @@
             document.getElementById('view-users').classList.toggle('hidden', view !== 'users');
             document.getElementById('view-hrboard').classList.toggle('hidden', view !== 'hrboard');
             document.getElementById('view-faq').classList.toggle('hidden', view !== 'faq');
+            document.getElementById('view-chat').classList.toggle('hidden', view !== 'chat');
             document.getElementById('view-perf').classList.toggle('hidden', view !== 'performance');
             const titles = {
                 home: ['Home', 'Your tasks and projects'],
@@ -1088,6 +1179,7 @@
                 settings: ['Settings', 'Manage access and preferences'],
                 users: ['Users', 'Employee directory & work updates'],
                 hrboard: ['HR Board', 'Birthdays, internships & leave at a glance'],
+                chat: ['Chat', 'Formal, work-only messaging — kept inside the ERP'],
                 performance: ['Performance', 'Who is actually working — engagement scores'],
                 faq: ['Help & FAQ', 'Answers tailored to your access level'],
             };
@@ -1096,6 +1188,7 @@
                 document.getElementById('page-sub').textContent = titles[view][1];
             }
             if (view !== 'project') CURRENT_PROJECT = null;
+            CURRENT_VIEW = view;
             updateTopbarButton(view);
             if (view === 'home') loadHome();
             if (view === 'projects') {
@@ -1108,6 +1201,7 @@
             if (view === 'users') loadUsers();
             if (view === 'hrboard') loadHrBoard();
             if (view === 'faq') loadFaq();
+            if (view === 'chat') loadChat(); else stopChatPolling();
             if (view === 'performance') loadPerformance();
         }
 
@@ -1133,6 +1227,13 @@
                 btn.classList.remove('hidden');
                 btn.textContent = 'Remark';
                 btn.onclick = openMyRemarks;
+                return;
+            }
+            // Chat: everyone can start a new direct message.
+            if (view === 'chat') {
+                btn.classList.remove('hidden');
+                btn.textContent = '+ New message';
+                btn.onclick = openNewChatModal;
                 return;
             }
             // Only managers/admins can create projects.
@@ -2026,9 +2127,187 @@
             </table></div></div>`;
         }
 
+        // ════════ CHAT ════════
+        let CHAT = { convs: [], active: null, lastId: 0, poll: null, tab: 'all', lastMsgs: [] };
+
+        function ckAutosize(el) { el.style.height = 'auto'; el.style.height = Math.min(120, el.scrollHeight) + 'px'; }
+        // Self-contained avatar colour (chat must work on any theme build).
+        const CK_AVCOLORS = ['#B6025E', '#1A4529', '#E5924E', '#822B2B', '#4C74A8', '#9E0049'];
+        function ckAvColor(s) { let h = 0; for (const c of (s || '?')) h = (h * 31 + c.charCodeAt(0)) % CK_AVCOLORS.length; return CK_AVCOLORS[h]; }
+        function ckFmt(t) {
+            return esc(t).replace(/@([\w][\w.'-]*(?:\s[A-Z][\w.'-]*)?)/g, m => `<span class="ck-mention">${m}</span>`);
+        }
+        function ckTime(iso) {
+            const d = new Date(iso); const now = new Date();
+            const sameDay = d.toDateString() === now.toDateString();
+            return sameDay ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        async function loadChat() {
+            await refreshChatList();
+            if (!CHAT.active && CHAT.convs.length) {
+                const firstUnread = CHAT.convs.find(c => c.unread > 0) || CHAT.convs[0];
+                openConversation(firstUnread.id);
+            } else if (CHAT.active) {
+                openConversation(CHAT.active, true);
+            }
+            startChatPolling();
+        }
+
+        async function refreshChatList() {
+            try { CHAT.convs = (await api('/api/chat/conversations')).conversations; }
+            catch (e) { document.getElementById('ck-list').innerHTML = `<div class="ck-empty">${esc(e.message)}</div>`; return; }
+            renderChatList();
+            updateChatBadge();
+        }
+
+        function chatTab(t) {
+            CHAT.tab = t;
+            document.querySelectorAll('.ck-tab').forEach(e => e.classList.toggle('active', e.dataset.cktab === t));
+            renderChatList();
+        }
+
+        function renderChatList() {
+            const box = document.getElementById('ck-list'); if (!box) return;
+            const q = (document.getElementById('ck-search').value || '').toLowerCase();
+            let items = CHAT.convs.filter(c => CHAT.tab === 'all' || c.type === CHAT.tab).filter(c => c.name.toLowerCase().includes(q));
+            const dms = items.filter(c => c.type === 'dm'), chans = items.filter(c => c.type === 'channel');
+            const row = c => `<div class="ck-item ${c.id === CHAT.active ? 'active' : ''}" onclick="openConversation(${c.id})">
+                <span class="ck-av" style="background:${c.type === 'channel' ? 'var(--grad-brand, var(--brand))' : ckAvColor(c.name)}">${c.type === 'channel' ? '#' : initials(c.name)}</span>
+                <div class="ck-main">
+                    <div class="ck-top"><span class="ck-name">${esc(c.name)}</span><span class="ck-time">${c.last_at ? ckTime(c.last_at) : ''}</span></div>
+                    <div class="ck-top"><span class="ck-last">${c.last_body ? (c.last_sender ? esc(c.last_sender.split(' ')[0] + ': ') : '') + esc(c.last_body) : '<i>No messages yet</i>'}</span>${c.unread ? `<span class="ck-unread">${c.unread}</span>` : ''}</div>
+                </div></div>`;
+            let html = '';
+            if (dms.length && CHAT.tab !== 'channel') html += '<div class="ck-sec">Direct messages</div>' + dms.map(row).join('');
+            if (chans.length && CHAT.tab !== 'dm') html += '<div class="ck-sec">Channels</div>' + chans.map(row).join('');
+            box.innerHTML = html || '<div class="ck-empty">No conversations yet. Start one with “+ New message”.</div>';
+        }
+
+        async function openConversation(id, silent) {
+            CHAT.active = id; CHAT.lastId = 0; CHAT.lastMsgs = [];
+            document.getElementById('view-chat').classList.add('show-thread');
+            if (!silent) renderChatList();
+            const c = CHAT.convs.find(x => x.id === id) || {};
+            document.getElementById('ck-head').innerHTML = `
+                <span class="ck-av" style="width:38px;height:38px;background:${c.type === 'channel' ? 'var(--grad-brand, var(--brand))' : ckAvColor(c.name || '')}">${c.type === 'channel' ? '#' : initials(c.name || '?')}</span>
+                <div class="ti"><div class="tn">${esc(c.name || '')}</div><div class="tm">${esc(c.subtitle || '')}</div></div>`;
+            const note = document.getElementById('ck-note'); note.classList.remove('hidden');
+            note.innerHTML = c.type === 'channel'
+                ? '🔒 Work channel · admins &amp; HR can view this for compliance'
+                : '🔒 Private message · retained per company policy; reportable to admins';
+            document.getElementById('ck-composer-wrap').classList.remove('hidden');
+            const box = document.getElementById('ck-msgs');
+            box.innerHTML = '<div class="ck-empty">Loading…</div>';
+            try {
+                const data = await api(`/api/chat/conversations/${id}/messages`);
+                renderMessages(data.messages, false);
+                if (data.readonly) document.getElementById('ck-composer-wrap').classList.add('hidden');
+                if (c) c.unread = 0; renderChatList(); updateChatBadge();
+            } catch (e) { box.innerHTML = `<div class="ck-empty">${esc(e.message)}</div>`; }
+        }
+
+        function renderMessages(msgs, append) {
+            const box = document.getElementById('ck-msgs');
+            if (!append && !msgs.length) { box.innerHTML = '<div class="ck-empty">No messages yet — say hello 👋</div>'; CHAT.lastMsgs = []; return; }
+            const all = append ? CHAT.lastMsgs.concat(msgs) : msgs;
+            CHAT.lastMsgs = all;
+            box.innerHTML = all.map((m, i) => {
+                const me = m.sender_id === CURRENT_USER.id;
+                const prev = all[i - 1];
+                const showWho = !me && (!prev || prev.sender_id !== m.sender_id);
+                return `<div class="ck-row ${me ? 'me' : 'them'}">
+                    ${me ? '' : `<span class="ck-av" style="background:${ckAvColor(m.sender_name || '?')}">${initials(m.sender_name || '?')}</span>`}
+                    <div class="ck-mcol">${showWho ? `<div class="ck-who">${esc(m.sender_name || 'Unknown')}</div>` : ''}
+                        <div class="ck-bub">${ckFmt(m.body)}</div>
+                        <div class="ck-mtime">${ckTime(m.created_at)}${me ? '' : ` · <button class="ck-report" onclick="reportMsg(${m.id})">⚑ report</button>`}</div>
+                    </div></div>`;
+            }).join('');
+            if (all.length) CHAT.lastId = all[all.length - 1].id;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function sendChat() {
+            const el = document.getElementById('ck-composer'); const body = el.value.trim();
+            if (!body || !CHAT.active) return;
+            const mentions = [];
+            (body.match(/@([\w][\w.'-]*(?:\s[A-Z][\w.'-]*)?)/g) || []).forEach(tok => {
+                const nm = tok.slice(1).trim().toLowerCase();
+                const hit = EMPLOYEES.find(e => e.name.toLowerCase() === nm || e.name.toLowerCase().startsWith(nm));
+                if (hit) mentions.push(hit.id);
+            });
+            el.value = ''; el.style.height = 'auto';
+            try {
+                const { message } = await api(`/api/chat/conversations/${CHAT.active}/messages`, { method: 'POST', body: JSON.stringify({ body, mentions }) });
+                renderMessages([message], true);
+                refreshChatList();
+            } catch (e) { alert(e.message); el.value = body; }
+        }
+
+        async function reportMsg(id) {
+            const reason = prompt('Report this message to the admins. Add a note (optional):', '');
+            if (reason === null) return;
+            try { await api(`/api/chat/messages/${id}/report`, { method: 'POST', body: JSON.stringify({ reason }) }); alert('Reported to the admins.'); }
+            catch (e) { alert(e.message); }
+        }
+
+        function startChatPolling() {
+            stopChatPolling();
+            CHAT.poll = setInterval(async () => {
+                if (CURRENT_VIEW !== 'chat') return;
+                try {
+                    if (CHAT.active) {
+                        const data = await api(`/api/chat/conversations/${CHAT.active}/messages?after=${CHAT.lastId}`);
+                        if (data.messages && data.messages.length) renderMessages(data.messages, true);
+                    }
+                    await refreshChatList();
+                } catch (e) { /* transient */ }
+            }, 4000);
+        }
+        function stopChatPolling() { if (CHAT.poll) { clearInterval(CHAT.poll); CHAT.poll = null; } }
+
+        async function updateChatBadge() {
+            let total = 0;
+            try { total = (await api('/api/chat/unread')).unread; } catch (e) { total = CHAT.convs.reduce((s, c) => s + (c.unread || 0), 0); }
+            const b = document.getElementById('ck-navbadge'); if (!b) return;
+            if (total > 0) { b.textContent = total > 99 ? '99+' : total; b.classList.remove('hidden'); }
+            else b.classList.add('hidden');
+        }
+
+        function openNewChatModal() {
+            const people = EMPLOYEES.filter(e => e.id !== CURRENT_USER.id && e.is_active !== false);
+            openModal(`<div class="modal-head"><div><h3 class="serif">New message</h3>
+                    <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;">Start a direct message with a colleague</div></div>
+                    <button class="x" onclick="closeModal()">✕</button></div>
+                <div class="modal-body">
+                    <div class="field"><input type="text" id="nc-search" placeholder="Search colleagues…" oninput="ncFilter(this.value)"></div>
+                    <div id="nc-list" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+                </div>`);
+            window._ncPeople = people;
+            ncFilter('');
+        }
+        function ncFilter(q) {
+            q = (q || '').toLowerCase();
+            const list = (window._ncPeople || []).filter(e => e.name.toLowerCase().includes(q) || (e.department || '').toLowerCase().includes(q));
+            document.getElementById('nc-list').innerHTML = list.map(e => `
+                <div class="mp-item" style="border-radius:9px;" onclick="startDm(${e.id})">
+                    <span class="av-badge" style="background:${ckAvColor(e.name)}">${initials(e.name)}</span>
+                    <span><b style="font-weight:600;">${esc(e.name)}</b><span class="id"> · ${esc(e.department || '')} · ${esc(e.job_title || '')}</span></span>
+                </div>`).join('') || '<div class="no-entries">No colleagues found.</div>';
+        }
+        async function startDm(userId) {
+            try {
+                const { id } = await api('/api/chat/dm', { method: 'POST', body: JSON.stringify({ userId }) });
+                closeModal();
+                CHAT.active = id;
+                await refreshChatList();
+                openConversation(id);
+            } catch (e) { alert(e.message); }
+        }
+
         // ── Remarks ──
         // The current user's remarks (feedback from admins/HR), opened from the
-        // Home top-right "Remark" button.
         async function openMyRemarks() {
             openModal(`<div class="modal-head"><div><h3 class="serif">Remarks for you</h3>
                     <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;">Notes shared with you by HR and admins</div></div>
