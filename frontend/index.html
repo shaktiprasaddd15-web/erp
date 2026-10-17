@@ -7,36 +7,37 @@
     <link rel="icon" href="logo.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#C10058" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="config.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
-            /* Brand: #C10058. The former "amber" accent tokens now carry the brand
-               pink so every primary button, active state, avatar and link picks it
-               up site-wide. Project "paused" uses its own warm token to stay
-               distinct from the brand colour. */
-            --bg: #FBF6F8; --card: #FFFFFF; --border: #EBDCE3; --ink: #2A2126; --ink-soft: #7C6B73;
-            --amber: #C10058; --amber-deep: #9E0049; --amber-soft: #FCE1EC;
-            --brand: #C10058; --brand-deep: #9E0049; --brand-soft: #FCE1EC;
-            --warn: #B5730B; --warn-soft: #F7E8CE;
-            --green: #4F8F63; --green-soft: #E4F0E7; --red: #C1585B; --red-soft: #F7E4E4;
-            --blue: #4C74A8; --blue-soft: #E3ECF5; --track: #F1E4EA; --shadow: 0 12px 32px rgba(120, 10, 60, 0.07);
-            --input-bg: #FCFAF4;
+            /* ── AURORA (light) ── brand rose #B6025E, warm neutrals, all-colour accents. */
+            --bg: #faf7f8; --card: #FFFFFF; --sidebar: #ffffff; --border: #efe9ec; --ink: #1c1520; --ink-soft: #6c6470;
+            --amber: #B6025E; --amber-deep: #9E0049; --amber-soft: #faeef4;
+            --brand: #B6025E; --brand-deep: #9E0049; --brand-soft: #faeef4;
+            --grad-brand: linear-gradient(90deg, #B6025E, #c93c78);
+            --grad-hero: linear-gradient(115deg, #B6025E 0%, #822B2B 55%, #E5924E 130%);
+            --warn: #a5641f; --warn-soft: #fdf1e7;
+            --green: #1A4529; --green-soft: #ecf3ee; --red: #D81F1F; --red-soft: #fbecec;
+            --blue: #4C74A8; --blue-soft: #E3ECF5; --track: #efe9ec; --shadow: 0 18px 42px -26px rgba(120, 10, 60, 0.30);
+            --input-bg: #fbf7f9;
             color-scheme: light;
         }
-        /* Dark theme — set data-theme="dark" on <html>. Same token names, dark values. */
+        /* ── MIDNIGHT (dark) ── near-black command centre, glowing rose. */
         :root[data-theme="dark"] {
-            --bg: #171215; --card: #211a1f; --border: #382b33; --ink: #f2e8ee; --ink-soft: #ab97a2;
-            --amber: #E0568F; --amber-deep: #EE6EA1; --amber-soft: #3a1f2c;
-            --brand: #E0568F; --brand-deep: #EE6EA1; --brand-soft: #3a1f2c;
-            --warn: #d6971f; --warn-soft: #3a2e19;
-            --green: #6fbf86; --green-soft: #1e2f24; --red: #e0787b; --red-soft: #3a2024;
-            --blue: #7fa8d8; --blue-soft: #1e2a3a; --track: #382b33; --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-            --input-bg: #2a2128;
+            --bg: #0e0b0f; --card: #16121a; --sidebar: #000000; --border: #241d2b; --ink: #f2eaf1; --ink-soft: #9a9199;
+            --amber: #e0568f; --amber-deep: #ee6ea1; --amber-soft: #2a1420;
+            --brand: #e0568f; --brand-deep: #ee6ea1; --brand-soft: #2a1420;
+            --grad-brand: linear-gradient(90deg, #B6025E, #c93c78);
+            --grad-hero: linear-gradient(115deg, #B6025E 0%, #822B2B 60%, #E5924E 135%);
+            --warn: #E5924E; --warn-soft: #2a1c10;
+            --green: #4fb377; --green-soft: #12241a; --red: #f06a6a; --red-soft: #2a1315;
+            --blue: #7fa8d8; --blue-soft: #1e2a3a; --track: #241d2b; --shadow: 0 18px 44px -22px rgba(0, 0, 0, 0.7);
+            --input-bg: #1b141b;
             color-scheme: dark;
         }
-        body { margin: 0; background: var(--bg); font-family: 'Inter', sans-serif; color: var(--ink); min-height: 100vh; }
+        body { margin: 0; background: var(--bg); font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink); min-height: 100vh; }
         .mono { font-family: 'IBM Plex Mono', monospace; }
         .serif { font-family: 'Fraunces', serif; }
         .hidden { display: none !important; }
@@ -73,15 +74,16 @@
         /* ── APP SHELL ── */
         #app-screen { display: none; min-height: 100vh; }
         .layout { display: flex; min-height: 100vh; }
-        .sidebar { width: 224px; background: var(--card); border-right: 1px solid var(--border); flex-shrink: 0;
+        .sidebar { width: 224px; background: var(--sidebar); border-right: 1px solid var(--border); flex-shrink: 0;
             display: flex; flex-direction: column; padding: 20px 14px; position: sticky; top: 0; height: 100vh; }
         .sb-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; padding: 4px 8px 22px; }
-        .sb-brand .dot { width: 12px; height: 12px; border-radius: 4px; background: var(--amber); }
+        .sb-brand .dot { width: 14px; height: 14px; border-radius: 5px; background: var(--grad-brand); box-shadow: 0 4px 10px -3px rgba(182,2,94,.6); }
         .sb-nav { display: flex; flex-direction: column; gap: 4px; }
-        .sb-link { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border-radius: 9px; cursor: pointer;
-            font-size: 14px; font-weight: 500; color: var(--ink-soft); border: 1px solid transparent; }
-        .sb-link:hover { background: var(--bg); color: var(--ink); }
-        .sb-link.active { background: var(--amber-soft); color: var(--amber-deep); font-weight: 600; border-color: #EED9B3; }
+        .sb-link { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border-radius: 11px; cursor: pointer;
+            font-size: 14px; font-weight: 500; color: var(--ink-soft); border: 1px solid transparent; transition: background .15s, color .15s; }
+        .sb-link:hover { background: var(--brand-soft); color: var(--ink); }
+        .sb-link.active { background: var(--grad-brand); color: #fff; font-weight: 600; border-color: transparent;
+            box-shadow: 0 10px 22px -10px rgba(182,2,94,.65); }
         .sb-link .ico { font-size: 16px; width: 18px; text-align: center; }
         .sb-foot { margin-top: auto; border-top: 1px dashed var(--border); padding-top: 14px; }
         .sb-user { font-size: 12px; color: var(--ink-soft); padding: 0 8px 10px; line-height: 1.5; }
@@ -98,8 +100,8 @@
         .topbar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .btn { border: none; border-radius: 9px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
             display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; transition: background .18s, opacity .18s; }
-        .btn-primary { background: var(--amber-deep); color: #fff; }
-        .btn-primary:hover { background: #8f4f16; }
+        .btn-primary { background: var(--grad-brand); color: #fff; box-shadow: 0 10px 22px -12px rgba(182,2,94,.7); }
+        .btn-primary:hover { filter: brightness(1.06); }
         .btn-ghost { background: var(--bg); color: var(--ink); border: 1px solid var(--border); }
         .btn-ghost:hover { background: var(--track); }
         .btn-ink { background: var(--ink); color: #fff; }
@@ -124,6 +126,49 @@
         .stat-card.s-closed { border-left-color: var(--red); }
         .stat-card .num { font-size: 32px; font-weight: 700; line-height: 1; }
         .stat-card .lbl { font-size: 12px; color: var(--ink-soft); margin-top: 8px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+
+        /* ── AURORA / MIDNIGHT rich components ── */
+        .home-hero { border-radius: 22px; padding: 24px 28px; background: var(--grad-hero); color: #fff;
+            display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;
+            box-shadow: 0 22px 46px -24px rgba(182,2,94,.7); margin-bottom: 20px; }
+        .home-hero .htitle { font-family: 'Fraunces', serif; font-weight: 600; font-size: 23px; line-height: 1.1; }
+        .home-hero .hsub { opacity: .9; font-size: 13.5px; margin-top: 5px; max-width: 52ch; }
+        .home-hero .hstats { display: flex; gap: 24px; text-align: center; }
+        .home-hero .hstats .n { font-size: 26px; font-weight: 700; line-height: 1; }
+        .home-hero .hstats .k { font-size: 11px; opacity: .82; margin-top: 4px; }
+        .home-hero .hdiv { width: 1px; align-self: stretch; background: rgba(255,255,255,.32); }
+
+        .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
+        @media (max-width: 820px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+        .kpi-tile { position: relative; border-radius: 18px; padding: 18px 18px 16px; background: var(--card);
+            border: 1px solid var(--border); box-shadow: var(--shadow); cursor: pointer; transition: transform .12s; overflow: hidden; }
+        .kpi-tile:hover { transform: translateY(-2px); }
+        .kpi-tile.sel { outline: 2px solid var(--brand); outline-offset: -2px; }
+        .kpi-tile .bdg { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 13px; color: #fff; }
+        .kpi-tile .bdg svg { width: 19px; height: 19px; }
+        .kpi-tile .n { font-size: 29px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+        .kpi-tile .k { font-size: 12px; color: var(--ink-soft); margin-top: 6px; font-weight: 500; }
+        .kpi-tile .tr { position: absolute; top: 16px; right: 16px; font-size: 11px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
+        .bdg-rose { background: #B6025E; } .bdg-green { background: #1A4529; } .bdg-amber { background: #E5924E; } .bdg-red { background: #D81F1F; } .bdg-clay { background: #822B2B; }
+        :root[data-theme="dark"] .kpi-tile { background: linear-gradient(160deg, #1a1420, #14101a); }
+
+        .av-badge { width: 27px; height: 27px; border-radius: 8px; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; flex: none; }
+
+        .rich-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 20px 22px; box-shadow: var(--shadow); }
+        .rich-card h3 { font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+        .rich-card .csub { font-size: 12px; color: var(--ink-soft); margin-bottom: 15px; }
+        /* leaderboard row */
+        .lbrow { display: flex; align-items: center; gap: 12px; margin-bottom: 13px; }
+        .lbrow .nm { width: 118px; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .lbrow .track { flex: 1; height: 16px; border-radius: 8px; overflow: hidden; background: var(--track); }
+        .lbrow .track > i { display: block; height: 100%; border-radius: 8px; }
+        .lbrow .sc { width: 34px; text-align: right; font-weight: 700; font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+        .donut-wrap { display: flex; align-items: center; gap: 22px; margin-bottom: 16px; flex-wrap: wrap; }
+        .donut-legend { font-size: 12.5px; display: flex; flex-direction: column; gap: 9px; }
+        .donut-legend div { display: flex; align-items: center; gap: 8px; }
+        .donut-legend i { width: 11px; height: 11px; border-radius: 3px; display: block; }
+        .perf-two { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
+        @media (max-width: 900px) { .perf-two { grid-template-columns: 1fr; } }
 
         .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
         .toolbar .filter { display: flex; align-items: center; gap: 8px; }
@@ -707,6 +752,14 @@
 </head>
 <body>
 
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <g id="ic-bolt"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></g>
+    <g id="ic-check"><path d="m5 12 5 5L20 6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g id="ic-flag"><path d="M5 21V4m0 0 6 2 8-2v10l-8 2-6-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g id="ic-mail"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="m3 7 9 6 9-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></g>
+    <g id="ic-users"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 20c0-3 2.6-5 5.5-5s5.5 2 5.5 5M16 5.2A3 3 0 0 1 16 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
+    </defs></svg>
+
     <!-- ════════ AUTH ════════ -->
     <div id="auth-screen">
         <div class="auth-card">
@@ -772,7 +825,8 @@
 
                 <!-- HOME — KPI tiles + My Tasks / My Projects -->
                 <div class="page" id="view-home">
-                    <div class="stat-row" id="stat-row"></div>
+                    <div class="home-hero" id="home-hero" hidden></div>
+                    <div class="kpi-row" id="stat-row"></div>
                     <div class="home-grid">
                         <div class="home-panel">
                             <div class="hp-head"><div class="section-title">My Tasks</div><span class="muted" id="mytasks-count"></span></div>
@@ -1265,9 +1319,41 @@
 
         // ════════ HOME (KPI tiles + My Tasks + My Projects) ════════
         async function loadHome() {
+            loadHomeHero();
             loadHomeStats();
             loadMyTasks();
             loadMyProjects();
+        }
+
+        // Colour for an avatar from a name (spreads across the palette).
+        const AV_COLORS = ['#B6025E', '#1A4529', '#E5924E', '#822B2B', '#D81F1F', '#9E0049'];
+        function avColor(s) { let h = 0; for (const c of (s || '?')) h = (h * 31 + c.charCodeAt(0)) % AV_COLORS.length; return AV_COLORS[h]; }
+
+        // Gradient welcome strip with real, at-a-glance numbers.
+        async function loadHomeHero() {
+            const hero = document.getElementById('home-hero');
+            if (!hero) return;
+            const hr = new Date().getHours();
+            const greet = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+            const first = (CURRENT_USER.name || '').split(' ')[0];
+            const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+            let tasks = [], projCount = 0;
+            try { tasks = (await api('/api/tasks/mine')).tasks; } catch (e) {}
+            try { projCount = (await api('/api/projects/stats?mine=1')).stats.total; } catch (e) {}
+            const todayISO = new Date().toISOString().slice(0, 10);
+            const dueToday = tasks.filter(t => t.status !== 'done' && t.task_date === todayISO).length;
+            const open = tasks.filter(t => t.status !== 'done').length;
+            hero.innerHTML = `
+                <div>
+                    <div class="htitle">${greet}, ${esc(first)} 👋</div>
+                    <div class="hsub">${dateStr} · ${dueToday ? dueToday + ' task' + (dueToday === 1 ? '' : 's') + ' due today' : 'nothing due today'} — log a work update to keep your streak going.</div>
+                </div>
+                <div class="hstats">
+                    <div><div class="n">${open}</div><div class="k">open tasks</div></div>
+                    <div class="hdiv"></div>
+                    <div><div class="n">${projCount}</div><div class="k">projects</div></div>
+                </div>`;
+            hero.hidden = false;
         }
 
         let HOME_FILTER = 'all';   // which status the My Projects grid is filtered to
@@ -1275,19 +1361,20 @@
             let stats = { open: 0, paused: 0, closed: 0, total: 0 };
             try { stats = (await api('/api/projects/stats?mine=1')).stats; } catch (e) {}
             const cards = [
-                { num: stats.total, lbl: 'All Projects', cls: '', st: 'all' },
-                { num: stats.open, lbl: 'Open', cls: 's-open', st: 'open' },
-                { num: stats.paused, lbl: 'Paused', cls: 's-paused', st: 'paused' },
-                { num: stats.closed, lbl: 'Closed', cls: 's-closed', st: 'closed' },
+                { num: stats.total, lbl: 'All projects', badge: 'bdg-rose', icon: 'ic-flag', st: 'all' },
+                { num: stats.open, lbl: 'Open', badge: 'bdg-green', icon: 'ic-bolt', st: 'open' },
+                { num: stats.paused, lbl: 'Paused', badge: 'bdg-amber', icon: 'ic-mail', st: 'paused' },
+                { num: stats.closed, lbl: 'Closed', badge: 'bdg-clay', icon: 'ic-check', st: 'closed' },
             ];
             document.getElementById('stat-row').innerHTML = cards.map(c => `
-                <div class="stat-card ${c.cls} ${HOME_FILTER === c.st ? 'sel' : ''}" data-st="${c.st}">
-                    <div class="num">${c.num}</div><div class="lbl">${c.lbl}</div>
+                <div class="kpi-tile ${HOME_FILTER === c.st ? 'sel' : ''}" data-st="${c.st}">
+                    <div class="bdg ${c.badge}"><svg><use href="#${c.icon}"/></svg></div>
+                    <div class="n">${c.num}</div><div class="k">${c.lbl}</div>
                 </div>`).join('');
-            document.querySelectorAll('#stat-row .stat-card').forEach(card => {
+            document.querySelectorAll('#stat-row .kpi-tile').forEach(card => {
                 card.onclick = () => {
                     HOME_FILTER = HOME_FILTER === card.dataset.st ? 'all' : card.dataset.st;
-                    loadHomeStats();     // refresh the selected highlight
+                    loadHomeStats();
                     loadMyProjects();
                 };
             });
@@ -1305,17 +1392,23 @@
                 box.innerHTML = '<div class="empty-state"><div class="big"></div>No tasks assigned to you yet. Tasks your project managers assign will appear here.</div>';
                 return;
             }
-            box.innerHTML = tasks.map(t => `
+            box.innerHTML = tasks.map(t => {
+                const done = t.status === 'done';
+                const bcls = done ? 'bdg-green' : (t.task_date && t.task_date <= new Date().toISOString().slice(0,10) ? 'bdg-red' : 'bdg-rose');
+                const who = t.assigned_by_name || '';
+                return `
                 <div class="mt-row" data-task="${t.id}" style="cursor:pointer;">
+                    <span class="av-badge ${bcls}" style="border-radius:9px;"><svg style="width:14px;height:14px;color:#fff;"><use href="#${done ? 'ic-check' : 'ic-flag'}"/></svg></span>
                     <div class="mt-main">
-                        <div class="mt-title ${t.status === 'done' ? 'done' : ''}">${esc(t.title)}</div>
-                        <div class="mt-sub">${t.project_name ? esc(t.project_name) : 'General'}${t.task_date ? ' · due ' + fmtDay(t.task_date) : ''}${t.my_submissions ? ' · ' + t.my_submissions + ' update' + (t.my_submissions == 1 ? '' : 's') : ''}${t.assigned_by_name ? ' · from ' + esc(t.assigned_by_name) : ''}</div>
+                        <div class="mt-title ${done ? 'done' : ''}">${esc(t.title)}</div>
+                        <div class="mt-sub">${t.project_name ? esc(t.project_name) : 'General'}${t.task_date ? ' · due ' + fmtDay(t.task_date) : ''}${t.my_submissions ? ' · ' + t.my_submissions + ' update' + (t.my_submissions == 1 ? '' : 's') : ''}${who ? ' · from ' + esc(who) : ''}</div>
                     </div>
                     <div class="mt-right">
                         <button class="btn btn-primary mt-wu" data-wu="${t.id}" style="padding:6px 11px;font-size:12px;">Work update${t.update_count ? ' · ' + t.update_count : ''}</button>
-                        <span class="pill ${t.status === 'done' ? 'open' : 'paused'}" style="${t.status === 'done' ? 'background:var(--green-soft);color:var(--green)' : ''}">${t.status === 'done' ? 'done' : 'open'}</span>
+                        ${who ? `<span class="av-badge" style="background:${avColor(who)};">${initials(who)}</span>` : ''}
+                        <span class="pill ${done ? 'open' : 'paused'}" style="${done ? 'background:var(--green-soft);color:var(--green)' : ''}">${done ? 'done' : 'open'}</span>
                     </div>
-                </div>`).join('');
+                </div>`; }).join('');
             box.querySelectorAll('.mt-row[data-task]').forEach(row => {
                 row.onclick = () => {
                     const t = tasks.find(x => x.id == row.dataset.task);
@@ -3584,27 +3677,58 @@
             if (title) title.textContent = tasksMode ? 'Task completion by employee' : 'Engagement scores by employee';
 
             if (!employees.length) { summary.innerHTML = ''; chart.innerHTML = '<div class="empty-state">No employees to show.</div>'; return; }
+            summary.innerHTML = '';   // KPI tiles + visuals all render into #perf-chart now
+
+            const bandGrad = (v) => v >= 75 ? 'pg-green' : v >= 50 ? 'pg-amber' : (v > 0 ? 'pg-rose' : 'pg-red');
+            const GRADS = `<defs>
+                <linearGradient id="pg-green" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fb377"/><stop offset="1" stop-color="#1A4529"/></linearGradient>
+                <linearGradient id="pg-amber" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0a460"/><stop offset="1" stop-color="#E5924E"/></linearGradient>
+                <linearGradient id="pg-rose"  x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d84f8f"/><stop offset="1" stop-color="#B6025E"/></linearGradient>
+                <linearGradient id="pg-red"   x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f06a6a"/><stop offset="1" stop-color="#D81F1F"/></linearGradient>
+                <linearGradient id="pg-donut" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B6025E"/><stop offset="1" stop-color="#E5924E"/></linearGradient></defs>`;
+            const kpiTile = (badge, icon, n, k) => `<div class="kpi-tile" style="cursor:default;"><div class="bdg ${badge}"><svg><use href="#${icon}"/></svg></div><div class="n">${n}</div><div class="k">${k}</div></div>`;
 
             if (tasksMode) {
                 const list = [...employees].sort((a, b) => (b.tasks_assigned - a.tasks_assigned) || (b.tasks_done - a.tasks_done));
                 const totalA = list.reduce((s, e) => s + (e.tasks_assigned || 0), 0);
                 const totalD = list.reduce((s, e) => s + (e.tasks_done || 0), 0);
                 const pct = totalA ? Math.round(totalD / totalA * 100) : 0;
-                summary.innerHTML = `
-                    <div class="cell"><div class="n">${list.length}</div><div class="k">Employees</div></div>
-                    <div class="cell"><div class="n">${totalA}</div><div class="k">Tasks assigned</div></div>
-                    <div class="cell"><div class="n">${totalD}</div><div class="k">Tasks completed</div></div>
-                    <div class="cell"><div class="n">${pct}%</div><div class="k">Completion</div></div>`;
-                chart.innerHTML = list.map(e => {
-                    const a = e.tasks_assigned || 0, d = e.tasks_done || 0;
-                    const p = a ? Math.round(d / a * 100) : 0;
-                    const cls = p >= 75 ? 'score-strong' : p >= 50 ? 'score-steady' : 'score-low';
-                    return `<div class="pf-row">
-                        <div class="pf-name"><span class="nm">${esc(e.name)}</span><span class="sub">${esc(e.employee_code)} · ${esc(e.department)}</span></div>
-                        <div class="pf-track"><div class="pf-bar ${a ? cls : ''}" style="width:${a ? Math.max(2, p) : 0}%"></div></div>
-                        <div class="pf-tasks"><span class="done">${d}</span><span class="sep">/</span>${a}<span class="pct">${a ? p + '% done' : 'no tasks'}</span></div>
+                const withTasks = list.filter(e => (e.tasks_assigned || 0) > 0);
+                const C = 2 * Math.PI * 48; // donut circumference
+                chart.innerHTML = `
+                    <div class="kpi-row">
+                        ${kpiTile('bdg-rose','ic-users',list.length,'Employees')}
+                        ${kpiTile('bdg-amber','ic-flag',totalA,'Tasks assigned')}
+                        ${kpiTile('bdg-green','ic-check',totalD,'Tasks completed')}
+                        ${kpiTile('bdg-clay','ic-bolt',pct+'%','Completion')}
+                    </div>
+                    <div class="perf-two">
+                      <div class="rich-card">
+                        <h3>Task completion by employee</h3><div class="csub">Every employee · all projects · live</div>
+                        <div style="max-height:360px;overflow-y:auto;margin:-2px -4px 0;padding:0 4px;">
+                        ${list.map(e => {
+                            const a=e.tasks_assigned||0,d=e.tasks_done||0,p=a?Math.round(d/a*100):0;
+                            const g = p>=75?'linear-gradient(90deg,#4fb377,#1A4529)':p>=50?'linear-gradient(90deg,#f0a460,#E5924E)':p>0?'linear-gradient(90deg,#d84f8f,#B6025E)':'linear-gradient(90deg,#f06a6a,#D81F1F)';
+                            return `<div class="lbrow"><span class="av-badge" style="background:${avColor(e.name)};">${initials(e.name)}</span><span class="nm">${esc(e.name)}</span><span class="track"><i style="width:${Math.max(3,p)}%;background:${g};"></i></span><span class="sc mono">${d}/${a}</span></div>`;
+                        }).join('')}
+                        </div>
+                      </div>
+                      <div class="rich-card">
+                        <h3>Overall</h3><div class="csub">${totalD} of ${totalA} tasks done</div>
+                        <div class="donut-wrap">
+                          <svg viewBox="0 0 120 120" width="130" height="130">${GRADS}
+                            <circle cx="60" cy="60" r="48" fill="none" stroke="var(--track)" stroke-width="15"/>
+                            <circle cx="60" cy="60" r="48" fill="none" stroke="url(#pg-donut)" stroke-width="15" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pct/100)}" transform="rotate(-90 60 60)"/>
+                            <text x="60" y="58" text-anchor="middle" font-family="IBM Plex Sans" font-weight="700" font-size="26" fill="var(--ink)">${pct}%</text>
+                            <text x="60" y="76" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="var(--ink-soft)">${totalD} / ${totalA}</text>
+                          </svg>
+                          <div class="donut-legend">
+                            <div><i style="background:#1A4529"></i>Completed · ${totalD}</div>
+                            <div><i style="background:#E5924E"></i>Remaining · ${totalA-totalD}</div>
+                          </div>
+                        </div>
+                      </div>
                     </div>`;
-                }).join('');
                 return;
             }
 
@@ -3613,26 +3737,48 @@
             const avg = Math.round(list.reduce((s, e) => s + e.score, 0) / list.length);
             const strong = list.filter(e => e.score >= 75).length;
             const low = list.filter(e => e.score < 50).length;
-            summary.innerHTML = `
-                <div class="cell"><div class="n">${list.length}</div><div class="k">Employees</div></div>
-                <div class="cell"><div class="n">${avg}</div><div class="k">Average score</div></div>
-                <div class="cell"><div class="n">${strong}</div><div class="k">Strong (75+)</div></div>
-                <div class="cell"><div class="n">${low}</div><div class="k">Needs attention</div></div>`;
-            chart.innerHTML = list.map(e => `
-                <div class="pf-row" data-emp="${e.id}" title="Click to see ${esc(e.name)}'s daily ratings">
-                    <div class="pf-name">
-                        <span class="nm">${esc(e.name)}</span>
-                        <span class="sub">${esc(e.employee_code)} · ${esc(e.department)}</span>
+            const top = list.slice(0, 8);
+            // SVG bar chart of the top scorers
+            const W = 520, H = 210, base = 178, top0 = 12, plot = base - top0, x0 = 44, colW = (W - x0 - 12) / top.length;
+            const bars = top.map((e, i) => {
+                const bw = Math.min(46, colW * 0.6), bx = x0 + i * colW + (colW - bw) / 2, bh = Math.max(3, (e.score / 100) * plot), by = base - bh;
+                return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="6" fill="url(#${bandGrad(e.score)})"/>
+                    <text x="${(bx+bw/2).toFixed(1)}" y="${(by-5).toFixed(1)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="var(--ink)">${e.score}</text>
+                    <text x="${(bx+bw/2).toFixed(1)}" y="196" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="var(--ink-soft)">${esc((e.name||'').split(' ')[0]).slice(0,8)}</text>`;
+            }).join('');
+            chart.innerHTML = `
+                <div class="kpi-row">
+                    ${kpiTile('bdg-rose','ic-users',list.length,'Employees')}
+                    ${kpiTile('bdg-amber','ic-bolt',avg,'Avg score')}
+                    ${kpiTile('bdg-green','ic-check',strong,'Strong (75+)')}
+                    ${kpiTile('bdg-red','ic-flag',low,'Need attention')}
+                </div>
+                <div class="perf-two">
+                  <div class="rich-card">
+                    <h3>Engagement by employee</h3><div class="csub">Top scorers · score out of 100</div>
+                    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;">${GRADS}
+                      <line x1="${x0}" y1="${top0}" x2="${x0}" y2="${base}" stroke="var(--border)"/>
+                      <line x1="${x0}" y1="${base}" x2="${W-6}" y2="${base}" stroke="var(--border)"/>
+                      <line x1="${x0}" y1="${(top0+base)/2}" x2="${W-6}" y2="${(top0+base)/2}" stroke="var(--border)" stroke-dasharray="3 4"/>
+                      <text x="${x0-6}" y="${top0+4}" text-anchor="end" font-family="IBM Plex Mono" font-size="9" fill="var(--ink-soft)">100</text>
+                      <text x="${x0-6}" y="${(top0+base)/2+3}" text-anchor="end" font-family="IBM Plex Mono" font-size="9" fill="var(--ink-soft)">50</text>
+                      <text x="${x0-6}" y="${base}" text-anchor="end" font-family="IBM Plex Mono" font-size="9" fill="var(--ink-soft)">0</text>
+                      ${bars}
+                    </svg>
+                  </div>
+                  <div class="rich-card">
+                    <h3>Leaderboard <span class="link" style="font-size:11px;font-weight:600;color:var(--ink-soft);">click a name</span></h3><div class="csub">Every employee · tap to see daily ratings</div>
+                    <div style="max-height:360px;overflow-y:auto;margin:-2px -4px 0;padding:0 4px;">
+                    ${list.map(e => `<div class="lbrow" data-emp="${e.id}" style="cursor:pointer;"><span class="av-badge" style="background:${avColor(e.name)};">${initials(e.name)}</span><span class="nm">${esc(e.name)}</span><span class="track"><i style="width:${Math.max(3,e.score)}%;background:var(--brand);"></i></span><span class="sc">${e.score}</span></div>`).join('')}
                     </div>
-                    <div class="pf-track"><div class="pf-bar ${e.label.cls}" style="width:${Math.max(2, e.score)}%"></div></div>
-                    <div class="pf-score">${e.score}</div>
-                </div>`).join('');
-            chart.querySelectorAll('.pf-row[data-emp]').forEach(row => {
-                row.style.cursor = 'pointer';
-                row.onclick = () => {
-                    const e = list.find(x => x.id == row.dataset.emp);
-                    openDailyGraph(e);
-                };
+                  </div>
+                </div>`;
+            // recolour leaderboard bars by band + wire clicks
+            chart.querySelectorAll('.lbrow[data-emp]').forEach(row => {
+                const e = list.find(x => x.id == row.dataset.emp);
+                const i = row.querySelector('.track > i');
+                if (i) i.style.background = e.score >= 75 ? 'linear-gradient(90deg,#4fb377,#1A4529)' : e.score >= 50 ? 'linear-gradient(90deg,#f0a460,#E5924E)' : e.score > 0 ? 'linear-gradient(90deg,#d84f8f,#B6025E)' : 'linear-gradient(90deg,#f06a6a,#D81F1F)';
+                row.onclick = () => openDailyGraph(e);
             });
         }
 
