@@ -1212,7 +1212,7 @@
         function updateTopbarButton(view) {
             const btn = document.getElementById('new-project-btn');
             if (view === 'project' && CURRENT_PROJECT) {
-                const canManage = isAdmin() || CURRENT_PROJECT.manager_id === CURRENT_USER.id;
+                const canManage = isAdmin() || CURRENT_PROJECT.manager_id === CURRENT_USER.id || CURRENT_PROJECT.created_by === CURRENT_USER.id;
                 if (canManage) {
                     btn.classList.remove('hidden');
                     btn.textContent = '+ Add Task';
@@ -2043,16 +2043,19 @@
             if (next < today) next = new Date(today.getFullYear() + 1, d.getMonth(), d.getDate());
             return Math.round((next - today) / 86400000);
         }
-        // Percentage of the internship period completed (start = joining date).
-        function internshipInfo(joining, end) {
-            const s = hrParseDate(joining), e = hrParseDate(end);
+        // Internship window: total period and remaining time, in MONTHS, plus
+        // the % completed (start = internship start, falling back to joining).
+        function internshipInfo(start, end) {
+            const s = hrParseDate(start), e = hrParseDate(end);
             if (!e) return null;
             const today = new Date(); today.setHours(0, 0, 0, 0);
-            const daysLeft = Math.round((e - today) / 86400000);
+            const MS_MONTH = 30.4375 * 86400000;
+            const periodMonths = s && e > s ? Math.max(1, Math.round((e - s) / MS_MONTH)) : null;
+            const monthsLeft = (e - today) / MS_MONTH;
             let pct = 0;
             if (s && e > s) pct = Math.max(0, Math.min(100, Math.round((today - s) / (e - s) * 100)));
             else pct = today >= e ? 100 : 0;
-            return { pct, daysLeft, end: e };
+            return { pct, periodMonths, monthsLeft, end: e };
         }
 
         async function loadHrBoard() {
@@ -2085,7 +2088,7 @@
 
             rows = rows.map(r => ({ ...r, _b: daysToBirthday(r.date_of_birth), _i: internshipInfo(r.internship_start_date || r.joining_date, r.internship_end_date) }));
             if (HR_FILTER.sort === 'bday') rows.sort((a, b) => (a._b == null ? 1e9 : a._b) - (b._b == null ? 1e9 : b._b));
-            else if (HR_FILTER.sort === 'intern') rows.sort((a, b) => (a._i ? a._i.daysLeft : 1e9) - (b._i ? b._i.daysLeft : 1e9));
+            else if (HR_FILTER.sort === 'intern') rows.sort((a, b) => (a._i ? a._i.monthsLeft : 1e9) - (b._i ? b._i.monthsLeft : 1e9));
             else rows.sort((a, b) => a.name.localeCompare(b.name));
 
             if (!rows.length) { box.innerHTML = '<div class="no-entries">No employees match this filter.</div>'; return; }
@@ -2099,11 +2102,21 @@
                 return `<span>${md}</span><div class="muted" style="font-size:11px;${soon ? 'color:var(--warn);font-weight:600;' : ''}">in ${r._b} day${r._b === 1 ? '' : 's'}</div>`;
             };
             const internCell = (r) => {
-                if (!r._i) return '<span class="muted">—</span>';
-                const { pct, daysLeft } = r._i;
+                if (!r._i) {
+                    // No structured internship dates on file yet. Show any legacy
+                    // free-text tenure once, otherwise a clean dash.
+                    return r.internship_tenure
+                        ? `<span style="font-size:12px;">${esc(r.internship_tenure)}</span><div class="muted" style="font-size:11px;">dates not set</div>`
+                        : '<span class="muted">—</span>';
+                }
+                const { pct, periodMonths, monthsLeft } = r._i;
                 const col = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--warn)' : 'var(--green)';
-                const left = daysLeft < 0 ? 'ended' : daysLeft === 0 ? 'ends today' : daysLeft + 'd left';
-                return `${r.internship_tenure ? `<div style="font-size:12px;margin-bottom:4px;">${esc(r.internship_tenure)}</div>` : ''}
+                const mo = Math.round(monthsLeft);
+                const left = monthsLeft <= 0 ? 'ended'
+                    : monthsLeft < 1 ? '< 1 month left'
+                    : mo + ' month' + (mo === 1 ? '' : 's') + ' left';
+                const period = periodMonths ? `${periodMonths}-month internship` : 'Internship';
+                return `<div style="font-size:12.5px;font-weight:600;margin-bottom:4px;">${period}</div>
                     <div style="height:8px;border-radius:6px;background:var(--track);overflow:hidden;max-width:180px;"><div style="height:100%;width:${pct}%;background:${col};border-radius:6px;"></div></div>
                     <div class="muted" style="font-size:11px;margin-top:3px;">${pct}% · ${left}</div>`;
             };
@@ -3148,7 +3161,7 @@
         function renderProjectDetail(p) {
             CURRENT_PROJECT = p;
             updateTopbarButton('project');
-            const canManage = isAdmin() || p.manager_id === CURRENT_USER.id;
+            const canManage = isAdmin() || p.manager_id === CURRENT_USER.id || p.created_by === CURRENT_USER.id;
             const backTo = canManageUsers() ? 'projects' : 'home';
             const members = (p.members || []);
             document.getElementById('view-project').innerHTML = `

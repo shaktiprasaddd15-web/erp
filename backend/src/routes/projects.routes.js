@@ -11,6 +11,13 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).cat
 const VALID_STATUS = ['open', 'paused', 'closed'];
 const VALID_PRIORITY = ['none', 'low', 'medium', 'high'];
 
+// Who may edit a project's details (status, priority, members): an admin, the
+// project's current manager, or the person who originally created it. Row must
+// carry manager_id and created_by.
+function canEditProject(row, user) {
+  return user.accessRole === 'admin' || row.manager_id === user.id || row.created_by === user.id;
+}
+
 async function logActivity(q, projectId, actorId, action, detail) {
   try {
     await q.query(
@@ -25,6 +32,7 @@ async function logActivity(q, projectId, actorId, action, detail) {
 const PROJECT_SELECT = `
   SELECT p.id, p.name, p.description, p.department, p.status, p.priority,
          p.manager_id, m.name AS manager_name, m.employee_code AS manager_code,
+         p.created_by,
          p.start_date, p.end_date, p.created_at, p.updated_at,
          COALESCE(mem.member_count, 0) AS member_count,
          COALESCE((SELECT COUNT(*) FROM tasks t WHERE t.project_id = p.id), 0) AS task_count,
@@ -195,10 +203,10 @@ router.patch('/:id/status', requireAuth, wrap(async (req, res) => {
   if (!VALID_STATUS.includes(status)) {
     return res.status(400).json({ error: 'Status must be open, paused, or closed.' });
   }
-  const { rows } = await db.query('SELECT manager_id FROM projects WHERE id = $1', [req.params.id]);
+  const { rows } = await db.query('SELECT manager_id, created_by FROM projects WHERE id = $1', [req.params.id]);
   if (!rows[0]) return res.status(404).json({ error: 'Project not found.' });
-  if (rows[0].manager_id !== req.user.id && req.user.accessRole !== 'admin') {
-    return res.status(403).json({ error: 'Only the project manager or an admin can change the status.' });
+  if (!canEditProject(rows[0], req.user)) {
+    return res.status(403).json({ error: 'Only the project manager (or its creator) or an admin can change the status.' });
   }
   await db.query('UPDATE projects SET status = $1, updated_at = now() WHERE id = $2', [status, req.params.id]);
   await logActivity(db, req.params.id, req.user.id, 'status', `changed status to ${status}`);
@@ -212,10 +220,10 @@ router.patch('/:id/priority', requireAuth, wrap(async (req, res) => {
   if (!VALID_PRIORITY.includes(priority)) {
     return res.status(400).json({ error: 'Priority must be none, low, medium, or high.' });
   }
-  const { rows } = await db.query('SELECT manager_id FROM projects WHERE id = $1', [req.params.id]);
+  const { rows } = await db.query('SELECT manager_id, created_by FROM projects WHERE id = $1', [req.params.id]);
   if (!rows[0]) return res.status(404).json({ error: 'Project not found.' });
-  if (rows[0].manager_id !== req.user.id && req.user.accessRole !== 'admin') {
-    return res.status(403).json({ error: 'Only the project manager or an admin can change the priority.' });
+  if (!canEditProject(rows[0], req.user)) {
+    return res.status(403).json({ error: 'Only the project manager (or its creator) or an admin can change the priority.' });
   }
   await db.query('UPDATE projects SET priority = $1, updated_at = now() WHERE id = $2', [priority, req.params.id]);
   await logActivity(db, req.params.id, req.user.id, 'priority', `set priority to ${priority}`);
@@ -249,10 +257,10 @@ router.patch('/:id/members', requireAuth, wrap(async (req, res) => {
   const ids = Array.isArray(req.body?.memberIds)
     ? [...new Set(req.body.memberIds.map(Number).filter((n) => Number.isInteger(n) && n > 0))]
     : [];
-  const { rows } = await db.query('SELECT manager_id FROM projects WHERE id = $1', [req.params.id]);
+  const { rows } = await db.query('SELECT manager_id, created_by FROM projects WHERE id = $1', [req.params.id]);
   if (!rows[0]) return res.status(404).json({ error: 'Project not found.' });
-  if (rows[0].manager_id !== req.user.id && req.user.accessRole !== 'admin') {
-    return res.status(403).json({ error: 'Only the project manager or an admin can change members.' });
+  if (!canEditProject(rows[0], req.user)) {
+    return res.status(403).json({ error: 'Only the project manager (or its creator) or an admin can change members.' });
   }
 
   const client = await db.pool.connect();
@@ -281,10 +289,10 @@ router.patch('/:id/members', requireAuth, wrap(async (req, res) => {
 // DELETE /api/projects/:id — the project's manager or an admin can permanently
 // delete the project. Its tasks, memberships and activity cascade away.
 router.delete('/:id', requireAuth, wrap(async (req, res) => {
-  const { rows } = await db.query('SELECT manager_id, name FROM projects WHERE id = $1', [req.params.id]);
+  const { rows } = await db.query('SELECT manager_id, created_by, name FROM projects WHERE id = $1', [req.params.id]);
   if (!rows[0]) return res.status(404).json({ error: 'Project not found.' });
-  if (rows[0].manager_id !== req.user.id && req.user.accessRole !== 'admin') {
-    return res.status(403).json({ error: 'Only the project manager or an admin can delete this project.' });
+  if (!canEditProject(rows[0], req.user)) {
+    return res.status(403).json({ error: 'Only the project manager (or its creator) or an admin can delete this project.' });
   }
   await db.query('DELETE FROM projects WHERE id = $1', [req.params.id]);
   res.json({ ok: true });
