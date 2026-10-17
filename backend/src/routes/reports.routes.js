@@ -37,6 +37,33 @@ async function ensureCanViewEmployee(req, res, employeeId) {
   return true;
 }
 
+// Who may give a performance rating to an employee: an admin, anyone on the HR
+// team (hr role or HR department), or the director of the employee's department
+// (job title contains "director" and same department). Returns true/false.
+async function canRate(reviewer, employeeId) {
+  if (reviewer.accessRole === 'admin') return true;
+  const { rows: rv } = await db.query('SELECT department, job_title, access_role FROM employees WHERE id = $1', [reviewer.id]);
+  const me = rv[0];
+  if (!me) return false;
+  const dept = String(me.department || '').toLowerCase();
+  if (me.access_role === 'hr' || dept === 'hr') return true;
+  if (/director/i.test(me.job_title || '')) {
+    const { rows: tgt } = await db.query('SELECT department FROM employees WHERE id = $1', [employeeId]);
+    if (tgt[0] && String(tgt[0].department || '').toLowerCase() === dept) return true;
+  }
+  return false;
+}
+// Average star rating + count for an employee, plus this reviewer's own rating.
+async function ratingSummary(employeeId, reviewerId) {
+  const { rows } = await db.query(
+    `SELECT ROUND(AVG(stars)::numeric, 1) AS avg, COUNT(*)::int AS count,
+            MAX(CASE WHEN reviewer_id = $2 THEN stars END) AS mine
+     FROM user_ratings WHERE employee_id = $1`,
+    [employeeId, reviewerId]
+  );
+  return { avg: rows[0].avg ? Number(rows[0].avg) : null, count: rows[0].count, mine: rows[0].mine || null };
+}
+
 // GET /api/reports/employees?department=Marketing
 // Admin/HR see everyone; a manager sees only their team.
 router.get('/employees', requireAuth, requireRole('admin', 'hr', 'manager'), async (req, res) => {
@@ -136,6 +163,8 @@ router.get('/employees/:id', requireAuth, requireRole('admin', 'hr', 'manager'),
     [id]
   );
   const stats = computeStats(statsEntries);
+  // Attendance: a day counts as present when a work update was pushed that day.
+  const attendancePct = stats.windowDays ? Math.round((stats.submittedDays / stats.windowDays) * 100) : 0;
 
   const clauses = ['employee_id = $1'];
   const params = [id];
@@ -153,7 +182,31 @@ router.get('/employees/:id', requireAuth, requireRole('admin', 'hr', 'manager'),
     [req.user.id, 'report_view', employee.employee_code, req.ip]
   );
 
-  res.json({ employee, stats: { ...stats, label: scoreLabel(stats.score) }, history });
+  const rating = await ratingSummary(id, req.user.id);
+  const canRateThis = await canRate(req.user, id);
+  res.json({
+    employee,
+    stats: { ...stats, label: scoreLabel(stats.score), attendancePct },
+    rating, canRate: canRateThis,
+    history,
+  });
+});
+
+// POST /api/reports/employees/:id/rating { stars, note } — admin, HR, or the
+// director of the employee's department records (or updates) their 1–5 rating.
+router.post('/employees/:id/rating', requireAuth, requireRole('admin', 'hr', 'manager'), async (req, res) => {
+  const id = Number(req.params.id);
+  const stars = Number(req.body?.stars);
+  if (!Number.isInteger(stars) || stars < 1 || stars > 5) return res.status(400).json({ error: 'Rating must be 1 to 5 stars.' });
+  if (id === req.user.id) return res.status(400).json({ error: 'You cannot rate yourself.' });
+  if (!(await canRate(req.user, id))) return res.status(403).json({ error: 'Only an admin, HR, or the department director can rate this person.' });
+  const note = (req.body?.note || '').toString().trim().slice(0, 1000) || null;
+  await db.query(
+    `INSERT INTO user_ratings (employee_id, reviewer_id, stars, note) VALUES ($1,$2,$3,$4)
+     ON CONFLICT (employee_id, reviewer_id) DO UPDATE SET stars = EXCLUDED.stars, note = EXCLUDED.note, updated_at = now()`,
+    [id, req.user.id, stars, note]
+  );
+  res.json({ ok: true, rating: await ratingSummary(id, req.user.id) });
 });
 
 // DELETE /api/reports/employees/:id/history — admin only: permanently clear an

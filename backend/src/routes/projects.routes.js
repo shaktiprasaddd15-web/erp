@@ -223,6 +223,27 @@ router.patch('/:id/priority', requireAuth, wrap(async (req, res) => {
   res.json({ project: full[0] });
 }));
 
+// PATCH /api/projects/:id/manager — reassign the project manager. Admin only
+// (fixes projects that were auto-reassigned to the acting admin when a previous
+// manager's account was deleted). The new manager is added as a member.
+router.patch('/:id/manager', requireAuth, wrap(async (req, res) => {
+  if (req.user.accessRole !== 'admin') {
+    return res.status(403).json({ error: 'Only an admin can change the project manager.' });
+  }
+  const managerId = Number(req.body?.managerId);
+  if (!Number.isInteger(managerId)) return res.status(400).json({ error: 'Pick a valid person.' });
+  const { rows: exists } = await db.query('SELECT id FROM projects WHERE id = $1', [req.params.id]);
+  if (!exists[0]) return res.status(404).json({ error: 'Project not found.' });
+  const { rows: emp } = await db.query('SELECT id, name FROM employees WHERE id = $1 AND is_active = true', [managerId]);
+  if (!emp[0]) return res.status(400).json({ error: 'That employee does not exist.' });
+
+  await db.query('UPDATE projects SET manager_id = $1, updated_at = now() WHERE id = $2', [managerId, req.params.id]);
+  await db.query('INSERT INTO project_members (project_id, employee_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.params.id, managerId]);
+  await logActivity(db, req.params.id, req.user.id, 'manager', `changed the project manager to ${emp[0].name}`);
+  const { rows: full } = await db.query(`${PROJECT_SELECT} WHERE p.id = $1`, [req.params.id]);
+  res.json({ project: full[0] });
+}));
+
 // PATCH /api/projects/:id/members — manager or admin: replace the member list.
 router.patch('/:id/members', requireAuth, wrap(async (req, res) => {
   const ids = Array.isArray(req.body?.memberIds)

@@ -1114,8 +1114,9 @@
                     department: u.department, jobTitle: u.job_title, accessRole: u.access_role,
                     baseRole: u.base_role || u.access_role, tempAccess: u.temp_access || null,
                     mustResetPassword: u.must_reset_pw,
-                    needsPersonalDetails: !u.personal_details_done,
-                    needsInternshipInfo: u.access_role !== 'admin' && !u.internship_asked };
+                    needsPersonalDetails: !u.personal_details_done || (u.access_role !== 'admin' && (!u.date_of_birth || !u.joining_date)),
+                    needsInternshipInfo: u.access_role !== 'admin' && !u.internship_asked,
+                    dob: u.date_of_birth, joiningDate: u.joining_date };
                 await postAuthFlow();
             } catch (e) { TOKEN = null; sessionStorage.removeItem('wt_token'); }
         })();
@@ -2988,8 +2989,8 @@
                 <div class="modal-head"><h3 class="serif">A few details about you</h3></div>
                 <div class="modal-body">
                     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:18px;">We keep these on your profile. This is a one-time step.</p>
-                    <div class="field"><label>Date of birth</label><input type="date" id="pd-dob" /></div>
-                    <div class="field"><label>Joining date</label><input type="date" id="pd-join" /></div>
+                    <div class="field"><label>Date of birth</label><input type="date" id="pd-dob" value="${CURRENT_USER.dob ? String(CURRENT_USER.dob).slice(0, 10) : ''}" /></div>
+                    <div class="field"><label>Joining date</label><input type="date" id="pd-join" value="${CURRENT_USER.joiningDate ? String(CURRENT_USER.joiningDate).slice(0, 10) : ''}" /></div>
                     <div class="field"><label>Internship tenure <span style="color:var(--ink-soft);font-weight:400;">(leave blank if not an intern)</span></label>
                         <input type="text" id="pd-tenure" placeholder="e.g. Jan 2025 – Jun 2025, or 6 months" /></div>
                     <div class="row2">
@@ -3167,6 +3168,7 @@
                         <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
                             ${canManage ? `<button class="btn btn-ghost" id="pd-status-btn">Status</button>` : ''}
                             ${canManage ? `<button class="btn btn-ghost" id="pd-priority-btn">Priority</button>` : ''}
+                            ${isAdmin() ? `<button class="btn btn-ghost" id="pd-manager-btn">Change manager</button>` : ''}
                             <button class="btn btn-ghost" id="pd-history">History</button>
                         </div>
                     </div>
@@ -3191,6 +3193,8 @@
             if (statusBtn) statusBtn.onclick = () => openStatusModal(p);
             const prioBtn = document.getElementById('pd-priority-btn');
             if (prioBtn) prioBtn.onclick = () => openProjectPriorityModal(p);
+            const mgrBtn = document.getElementById('pd-manager-btn');
+            if (mgrBtn) mgrBtn.onclick = () => openChangeManagerModal(p);
             const delProjBtn = document.getElementById('pd-delete-project');
             if (delProjBtn) delProjBtn.onclick = () => openDeleteProjectModal(p);
             document.getElementById('pd-history').onclick = () => openHistoryModal(p);
@@ -3210,6 +3214,29 @@
         }
 
         // Change project status (open / paused / closed) — manager or admin.
+        // Admin: reassign the project manager (fixes mislabeled managers from
+        // auto-reassignment when a previous manager's account was deleted).
+        function openChangeManagerModal(p) {
+            const opts = EMPLOYEES.filter(e => e.is_active !== false)
+                .map(e => `<option value="${e.id}" ${e.id === p.manager_id ? 'selected' : ''}>${esc(e.name)} · ${esc(e.department || '')}</option>`).join('');
+            openModal(`<div class="modal-head"><h3 class="serif">Change project manager</h3><button class="x" onclick="closeModal()">✕</button></div>
+                <div class="modal-body">
+                    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px;">Reassign <b>${esc(p.name)}</b> to its correct manager. They'll be added as a member.</p>
+                    <div class="field"><label>Project manager</label><select id="cm-mgr">${opts}</select></div>
+                    <div class="form-error hidden" id="cm-err"></div>
+                    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="cm-save">Save</button></div>
+                </div>`);
+            document.getElementById('cm-save').onclick = async () => {
+                const err = document.getElementById('cm-err'); err.classList.add('hidden');
+                const managerId = Number(document.getElementById('cm-mgr').value);
+                const btn = document.getElementById('cm-save'); btn.disabled = true; btn.textContent = 'Saving…';
+                try {
+                    await api('/api/projects/' + p.id + '/manager', { method: 'PATCH', body: JSON.stringify({ managerId }) });
+                    closeModal(); openProjectDetail(p.id);
+                } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Save'; }
+            };
+        }
+
         function openStatusModal(p) {
             openModal(`<div class="modal-head"><h3 class="serif">Project status</h3><button class="x" onclick="closeModal()">✕</button></div>
                 <div class="modal-body"><div class="pd-status">
@@ -3711,6 +3738,35 @@
                 <div style="text-align:center;font-size:12px;color:var(--ink-soft);margin-top:10px;">Average over ${past.length || 0} day${past.length === 1 ? '' : 's'} in view: <strong style="color:var(--ink);">${avg}</strong> / 100</div>`;
         }
 
+        // Review rating (admin / HR / department director): 1–5 stars + note.
+        function starStr(n) { const f = Math.round(n || 0); return '★★★★★'.slice(0, f) + '☆☆☆☆☆'.slice(0, 5 - f); }
+        function openRatingModal(emp, rating) {
+            const mine = (rating && rating.mine) || 0;
+            const star = v => `<span class="rt-star" data-v="${v}" style="font-size:30px;cursor:pointer;color:${v <= mine ? 'var(--warn)' : 'var(--border)'};">★</span>`;
+            openModal(`<div class="modal-head"><div><h3 class="serif">Rate ${esc(emp.name)}</h3>
+                    <div style="font-size:12px;color:var(--ink-soft);margin-top:4px;">Your review rating — out of 5 stars</div></div>
+                    <button class="x" onclick="closeModal()">✕</button></div>
+                <div class="modal-body">
+                    <div id="rt-stars" style="display:flex;gap:6px;margin-bottom:6px;">${[1,2,3,4,5].map(star).join('')}</div>
+                    <div class="muted" id="rt-label" style="font-size:12px;margin-bottom:14px;">${mine ? mine + ' / 5' : 'Tap a star'}</div>
+                    <div class="field"><label>Note (optional)</label><textarea class="field-ta" id="rt-note" placeholder="What's this rating based on?"></textarea></div>
+                    <div class="form-error hidden" id="rt-err"></div>
+                    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="rt-save">Save rating</button></div>
+                </div>`);
+            let chosen = mine;
+            const paint = () => document.querySelectorAll('#rt-stars .rt-star').forEach(s => s.style.color = Number(s.dataset.v) <= chosen ? 'var(--warn)' : 'var(--border)');
+            document.querySelectorAll('#rt-stars .rt-star').forEach(s => s.onclick = () => { chosen = Number(s.dataset.v); document.getElementById('rt-label').textContent = chosen + ' / 5'; paint(); });
+            document.getElementById('rt-save').onclick = async () => {
+                const err = document.getElementById('rt-err'); err.classList.add('hidden');
+                if (!chosen) { err.textContent = 'Pick a star rating first.'; err.classList.remove('hidden'); return; }
+                const btn = document.getElementById('rt-save'); btn.disabled = true; btn.textContent = 'Saving…';
+                try {
+                    await api('/api/reports/employees/' + emp.id + '/rating', { method: 'POST', body: JSON.stringify({ stars: chosen, note: document.getElementById('rt-note').value }) });
+                    closeModal(); renderUserDetail(emp.id);
+                } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); btn.disabled = false; btn.textContent = 'Save rating'; }
+            };
+        }
+
         async function renderUserDetail(id) {
             const panel = document.getElementById('users-panel');
             panel.innerHTML = '<div class="empty-state">Loading…</div>';
@@ -3738,6 +3794,7 @@
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
                         <button class="btn btn-ghost" id="cal-btn">Calendar</button>
+                        ${data.canRate ? '<button class="btn btn-ghost" id="rate-user">★ Rate</button>' : ''}
                         ${(isAdmin() || isHR()) ? '<button class="btn btn-ghost" id="remark-user">Remark</button>' : ''}
                         ${isAdmin() ? '<button class="btn btn-ghost" id="edit-user">Edit</button>' : ''}
                         ${canUnblock ? `<button class="btn ${isLocked ? 'btn-danger' : 'btn-ghost'}" id="unblock-user">Unblock login</button>` : ''}
@@ -3755,6 +3812,8 @@
                     <span><b>Date of birth</b> ${emp.date_of_birth ? fmtDay(String(emp.date_of_birth).slice(0, 10)) : '—'}</span>
                     <span><b>Joining date</b> ${emp.joining_date ? fmtDay(String(emp.joining_date).slice(0, 10)) : '—'}</span>
                     <span><b>Internship tenure</b> ${emp.internship_tenure ? esc(emp.internship_tenure) : '—'}</span>
+                    <span><b>Review rating</b> ${data.rating && data.rating.avg ? starStr(data.rating.avg) + ' ' + data.rating.avg + '/5 (' + data.rating.count + ')' : '<span style="color:var(--ink-soft)">Not rated yet</span>'}</span>
+                    <span><b>Attendance (30d)</b> ${stats.attendancePct}%</span>
                     <span><b>Days logged (30d)</b> ${stats.submittedDays}/${stats.windowDays}</span>
                     <span><b>Avg points/entry</b> ${stats.avgBulletsPerEntry}</span>
                     <span><b>With evidence</b> ${stats.attachRatePct}%</span>
@@ -3778,6 +3837,8 @@
             document.getElementById('cal-btn').onclick = () => openLeaveCalendar(emp);
             const remarkBtn = document.getElementById('remark-user');
             if (remarkBtn) remarkBtn.onclick = () => openUserRemarks(emp);
+            const rateBtn = document.getElementById('rate-user');
+            if (rateBtn) rateBtn.onclick = () => openRatingModal(emp, data.rating);
             const editBtn = document.getElementById('edit-user');
             if (editBtn) editBtn.onclick = () => openEditUserModal(emp);
             const clearBtn = document.getElementById('clear-history');

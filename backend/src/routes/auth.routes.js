@@ -108,8 +108,9 @@ router.post('/login', loginLimiter, async (req, res) => {
       baseRole: user.access_role,
       tempAccess: grant ? { role: grant.granted_role, expiresAt: grant.expires_at } : null,
       mustResetPassword: user.must_reset_pw,
-      needsPersonalDetails: !user.personal_details_done,
+      needsPersonalDetails: !user.personal_details_done || (user.access_role !== 'admin' && (!user.date_of_birth || !user.joining_date)),
       needsInternshipInfo: user.access_role !== 'admin' && !user.internship_asked,
+      dob: user.date_of_birth, joiningDate: user.joining_date,
     },
   });
 });
@@ -141,7 +142,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
 // GET /api/auth/me
 router.get('/me', requireAuth, async (req, res) => {
   const { rows } = await db.query(
-    'SELECT id, employee_code, name, email, department, job_title, access_role, must_reset_pw, personal_details_done, internship_asked FROM employees WHERE id = $1',
+    'SELECT id, employee_code, name, email, department, job_title, access_role, must_reset_pw, personal_details_done, internship_asked, date_of_birth, joining_date FROM employees WHERE id = $1',
     [req.user.id]
   );
   if (!rows[0]) return res.status(404).json({ error: 'User not found.' });
