@@ -129,7 +129,6 @@ async function runTests() {
         record(false, `POST /api/tasks: ${JSON.stringify(taskData)}`);
       }
 
-      // Fetch tasks for project
       const listRes = await fetch(`${BASE_URL}/api/tasks?projectId=${projectId}`, { headers: authHeaders });
       const listData = await listRes.json();
       record(listRes.ok && listData.tasks?.length > 0, `GET /api/tasks?projectId=${projectId} - Retrieved ${listData.tasks?.length || 0} task(s)`);
@@ -138,13 +137,71 @@ async function runTests() {
     record(false, `Task test error: ${err.message}`);
   }
 
-  // 7. Chat test (conversations endpoint)
+  // 7. Chat test (Teams features: Send, React, Reply, Pin, Edit, Soft-delete)
   try {
     const convRes = await fetch(`${BASE_URL}/api/chat/conversations`, { headers: authHeaders });
     const convData = await convRes.json();
     record(convRes.ok && Array.isArray(convData.conversations), `GET /api/chat/conversations - Responsive (${convData.conversations?.length || 0} conversations)`);
+
+    const convId = convData.conversations?.[0]?.id;
+    if (convId) {
+      // Send a test message
+      const sendRes = await fetch(`${BASE_URL}/api/chat/conversations/${convId}/messages`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ body: 'Testing Teams-style features: reactions, edits, replies!' })
+      });
+      const sendData = await sendRes.json();
+      const msgId = sendData.message?.id;
+      record(sendRes.ok && !!msgId, `POST /api/chat/conversations/:id/messages - Sent message #${msgId}`);
+
+      if (msgId) {
+        // Reaction
+        const reactRes = await fetch(`${BASE_URL}/api/chat/messages/${msgId}/react`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({ emoji: '👍' })
+        });
+        const reactData = await reactRes.json();
+        record(reactRes.ok && reactData.reactions?.length > 0, `POST /api/chat/messages/:id/react - Added 👍 reaction`);
+
+        // Reply
+        const replyRes = await fetch(`${BASE_URL}/api/chat/conversations/${convId}/messages`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({ body: 'Replying to the above message', replyToId: msgId })
+        });
+        const replyData = await replyRes.json();
+        record(replyRes.ok && replyData.message?.reply_to?.id === msgId, `POST /api/chat/conversations/:id/messages (reply) - Linked reply`);
+
+        // Pin
+        const pinRes = await fetch(`${BASE_URL}/api/chat/messages/${msgId}/pin`, {
+          method: 'POST',
+          headers: authHeaders
+        });
+        const pinData = await pinRes.json();
+        record(pinRes.ok && pinData.is_pinned === true, `POST /api/chat/messages/:id/pin - Pinned: ${JSON.stringify(pinData)}`);
+
+        // Edit
+        const editRes = await fetch(`${BASE_URL}/api/chat/messages/${msgId}`, {
+          method: 'PATCH',
+          headers: authHeaders,
+          body: JSON.stringify({ body: 'Edited message with **bold** formatting' })
+        });
+        const editData = await editRes.json();
+        record(editRes.ok && !!editData.message?.edited_at, `PATCH /api/chat/messages/:id - Edited message`);
+
+        // Soft Delete
+        const delRes = await fetch(`${BASE_URL}/api/chat/messages/${msgId}`, {
+          method: 'DELETE',
+          headers: authHeaders
+        });
+        const delData = await delRes.json();
+        record(delRes.ok && delData.ok, `DELETE /api/chat/messages/:id - Soft-deleted message`);
+      }
+    }
   } catch (err) {
-    record(false, `Chat test error: ${err.message}`);
+    record(false, `Chat Teams test error: ${err.message}`);
   }
 
   // 8. Leaves endpoint
@@ -176,7 +233,7 @@ async function runTests() {
   console.log('\n==================================================');
   console.log(`   TEST RESULTS: ${passedCount}/${totalCount} PASSED`);
   if (passedCount === totalCount) {
-    console.log('   ALL SYSTEMS OPERATIONAL (Neon PostgreSQL + API + Frontend)');
+    console.log('   ALL SYSTEMS OPERATIONAL (Neon PostgreSQL + Teams Chat + API + Frontend)');
   }
   console.log('==================================================');
 }

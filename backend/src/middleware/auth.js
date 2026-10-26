@@ -36,6 +36,10 @@ async function requireAuth(req, res, next) {
   }
   req.user = payload;
   req.user.baseRole = payload.accessRole;
+
+  // Background presence tracking: update last_seen_at (fire-and-forget)
+  db.query('UPDATE employees SET last_seen_at = now() WHERE id = $1', [payload.id]).catch(() => {});
+
   const grant = await activeGrant(payload.id);
   if (grant) {
     req.user.accessRole = grant.granted_role;

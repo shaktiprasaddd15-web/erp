@@ -734,7 +734,31 @@
         .ck-report { opacity: 0; background: none; border: none; color: var(--ink-soft); cursor: pointer; font-size: 11px; margin-top: 2px; }
         .ck-row:hover .ck-report { opacity: 1; }
         .ck-report:hover { color: var(--red); }
-        .ck-composer { background: var(--card); border-top: 1px solid var(--border); padding: 12px 18px; display: flex; gap: 10px; align-items: flex-end; }
+        .ck-composer-wrap { background: var(--card); border-top: 1px solid var(--border); display: flex; flex-direction: column; }
+        .ck-composer { background: transparent; padding: 12px 18px; display: flex; gap: 10px; align-items: flex-end; }
+        /* Teams Features (Preserves Original UI Design) */
+        .ck-av { position: relative; }
+        .ck-online-dot { position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px; border-radius: 50%; background: #10b981; border: 2px solid var(--card); box-shadow: 0 0 0 1px rgba(0,0,0,0.06); }
+        .ck-row { position: relative; }
+        .ck-actions { position: absolute; top: -14px; right: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; display: none; align-items: center; gap: 1px; padding: 2px 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.1); z-index: 5; }
+        .ck-row.me .ck-actions { right: auto; left: 8px; }
+        .ck-row:hover .ck-actions { display: flex; }
+        .ck-act-btn { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px 6px; font-size: 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 2px; line-height: 1; transition: background .1s, color .1s; }
+        .ck-act-btn:hover { background: var(--bg); color: var(--ink); }
+        .ck-act-btn.del:hover { color: var(--red); }
+        .ck-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .ck-row.me .ck-reactions { justify-content: flex-end; }
+        .ck-reaction-chip { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2px 7px; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; color: var(--ink); transition: border-color .15s, background .15s; font-family: inherit; }
+        .ck-reaction-chip:hover { border-color: var(--brand); }
+        .ck-reaction-chip.me { background: var(--brand-soft); border-color: var(--brand); font-weight: 600; color: var(--brand-deep); }
+        .ck-reply-quote { background: rgba(0,0,0,0.04); border-left: 3px solid var(--brand); border-radius: 4px; padding: 4px 8px; font-size: 11.5px; margin-bottom: 5px; opacity: 0.9; cursor: pointer; max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35; }
+        .ck-row.me .ck-reply-quote { background: rgba(255,255,255,0.18); border-left-color: #fff; text-align: left; }
+        .ck-banner { background: var(--card); border-bottom: 1px solid var(--border); padding: 8px 18px; font-size: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--ink-soft); }
+        .ck-banner b { color: var(--ink); }
+        .ck-banner-x { background: none; border: none; cursor: pointer; color: var(--ink-soft); font-size: 14px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+        .ck-banner-x:hover { color: var(--ink); background: var(--bg); }
+        .ck-bub.ck-deleted { font-style: italic; opacity: 0.65; background: var(--bg) !important; color: var(--ink-soft) !important; border: 1px dashed var(--border) !important; }
+        .ck-pinned-badge { font-size: 10px; color: var(--brand); display: inline-flex; align-items: center; gap: 2px; }
         .ck-composer textarea { flex: 1; border: 1px solid var(--border); background: var(--input-bg); border-radius: 12px; padding: 11px 14px; font-size: 14px; color: var(--ink); outline: none; resize: none; max-height: 120px; font-family: inherit; }
         .ck-composer textarea:focus { border-color: var(--brand); }
         .ck-send { background: var(--grad-brand, var(--brand)); color: #fff; border: none; border-radius: 11px; width: 42px; height: 42px; cursor: pointer; display: grid; place-items: center; flex-shrink: 0; }
@@ -952,9 +976,12 @@
                             <div class="ck-head" id="ck-head"></div>
                             <div class="ck-note hidden" id="ck-note"></div>
                             <div class="ck-msgs" id="ck-msgs"><div class="ck-empty">Select a conversation to start messaging.</div></div>
-                            <div class="ck-composer hidden" id="ck-composer-wrap">
-                                <textarea id="ck-composer" rows="1" placeholder="Write a professional message…  use @ to tag" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}" oninput="ckAutosize(this)"></textarea>
-                                <button class="ck-send" onclick="sendChat()"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
+                            <div class="ck-composer-wrap hidden" id="ck-composer-wrap">
+                                <div id="ck-context-bar" class="ck-banner hidden"></div>
+                                <div class="ck-composer">
+                                    <textarea id="ck-composer" rows="1" placeholder="Write a professional message…  use @ to tag, Markdown supported" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}" oninput="ckAutosize(this)"></textarea>
+                                    <button class="ck-send" onclick="sendChat()"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2235,15 +2262,25 @@
         }
 
         // ════════ CHAT ════════
-        let CHAT = { convs: [], active: null, lastId: 0, poll: null, tab: 'all', lastMsgs: [] };
+        let CHAT = { convs: [], active: null, lastId: 0, poll: null, tab: 'all', lastMsgs: [], replyTo: null, editingMsg: null };
 
         function ckAutosize(el) { el.style.height = 'auto'; el.style.height = Math.min(120, el.scrollHeight) + 'px'; }
-        // Self-contained avatar colour (chat must work on any theme build).
         const CK_AVCOLORS = ['#B6025E', '#1A4529', '#E5924E', '#822B2B', '#4C74A8', '#9E0049'];
         function ckAvColor(s) { let h = 0; for (const c of (s || '?')) h = (h * 31 + c.charCodeAt(0)) % CK_AVCOLORS.length; return CK_AVCOLORS[h]; }
+
         function ckFmt(t) {
-            return esc(t).replace(/@([\w][\w.'-]*(?:\s[A-Z][\w.'-]*)?)/g, m => `<span class="ck-mention">${m}</span>`);
+            if (!t) return '';
+            let s = esc(t);
+            s = s.replace(/```([\s\S]*?)```/g, (m, c) => `<pre style="background:rgba(0,0,0,0.06);padding:6px 10px;border-radius:6px;font-family:monospace;font-size:12px;overflow-x:auto;margin:4px 0;"><code>${c}</code></pre>`);
+            s = s.replace(/`([^`]+)`/g, (m, c) => `<code style="background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px;">${c}</code>`);
+            s = s.replace(/\*\*([^\*]+)\*\*/g, '<b>$1</b>');
+            s = s.replace(/(^|[^\*])\*([^\*]+)\*([^\*]|$)/g, '$1<i>$2</i>$3');
+            s = s.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="text-decoration:underline;color:inherit;">$1</a>');
+            s = s.replace(/@([\w][\w.'-]*(?:\s[A-Z][\w.'-]*)?)/g, m => `<span class="ck-mention">${m}</span>`);
+            s = s.replace(/\n/g, '<br>');
+            return s;
         }
+
         function ckTime(iso) {
             const d = new Date(iso); const now = new Date();
             const sameDay = d.toDateString() === now.toDateString();
@@ -2281,7 +2318,10 @@
             let items = CHAT.convs.filter(c => CHAT.tab === 'all' || c.type === CHAT.tab).filter(c => c.name.toLowerCase().includes(q));
             const dms = items.filter(c => c.type === 'dm'), chans = items.filter(c => c.type === 'channel');
             const row = c => `<div class="ck-item ${c.id === CHAT.active ? 'active' : ''}" onclick="openConversation(${c.id})">
-                <span class="ck-av" style="background:${c.type === 'channel' ? 'var(--grad-brand, var(--brand))' : ckAvColor(c.name)}">${c.type === 'channel' ? '#' : initials(c.name)}</span>
+                <span class="ck-av" style="background:${c.type === 'channel' ? 'var(--grad-brand, var(--brand))' : ckAvColor(c.name)}">
+                    ${c.type === 'channel' ? '#' : initials(c.name)}
+                    ${c.type === 'dm' && c.is_online ? '<i class="ck-online-dot"></i>' : ''}
+                </span>
                 <div class="ck-main">
                     <div class="ck-top"><span class="ck-name">${esc(c.name)}</span><span class="ck-time">${c.last_at ? ckTime(c.last_at) : ''}</span></div>
                     <div class="ck-top"><span class="ck-last">${c.last_body ? (c.last_sender ? esc(c.last_sender.split(' ')[0] + ': ') : '') + esc(c.last_body) : '<i>No messages yet</i>'}</span>${c.unread ? `<span class="ck-unread">${c.unread}</span>` : ''}</div>
@@ -2294,12 +2334,25 @@
 
         async function openConversation(id, silent) {
             CHAT.active = id; CHAT.lastId = 0; CHAT.lastMsgs = [];
+            cancelComposerContext();
             document.getElementById('view-chat').classList.add('show-thread');
             if (!silent) renderChatList();
             const c = CHAT.convs.find(x => x.id === id) || {};
+
+            const onlineTag = (c.type === 'dm' && c.is_online)
+                ? '<span style="color:#10b981;font-weight:600;">· 🟢 Active</span>'
+                : (c.type === 'dm' ? '<span style="color:var(--ink-soft);">· Offline</span>' : '');
+
             document.getElementById('ck-head').innerHTML = `
-                <span class="ck-av" style="width:38px;height:38px;background:${c.type === 'channel' ? 'var(--grad-brand, var(--brand))' : ckAvColor(c.name || '')}">${c.type === 'channel' ? '#' : initials(c.name || '?')}</span>
-                <div class="ti"><div class="tn">${esc(c.name || '')}</div><div class="tm">${esc(c.subtitle || '')}</div></div>`;
+                <span class="ck-av" style="width:38px;height:38px;background:${c.type === 'channel' ? 'var(--grad-brand, var(--brand))' : ckAvColor(c.name || '')}">
+                    ${c.type === 'channel' ? '#' : initials(c.name || '?')}
+                    ${c.type === 'dm' && c.is_online ? '<i class="ck-online-dot"></i>' : ''}
+                </span>
+                <div class="ti">
+                    <div class="tn">${esc(c.name || '')}</div>
+                    <div class="tm">${esc(c.subtitle || '')} ${onlineTag}</div>
+                </div>`;
+
             const note = document.getElementById('ck-note'); note.classList.remove('hidden');
             note.innerHTML = c.type === 'channel'
                 ? '🔒 Work channel · admins &amp; HR can view this for compliance'
@@ -2320,17 +2373,64 @@
             if (!append && !msgs.length) { box.innerHTML = '<div class="ck-empty">No messages yet — say hello 👋</div>'; CHAT.lastMsgs = []; return; }
             const all = append ? CHAT.lastMsgs.concat(msgs) : msgs;
             CHAT.lastMsgs = all;
+
             box.innerHTML = all.map((m, i) => {
                 const me = m.sender_id === CURRENT_USER.id;
                 const prev = all[i - 1];
                 const showWho = !me && (!prev || prev.sender_id !== m.sender_id);
-                return `<div class="ck-row ${me ? 'me' : 'them'}">
+                const isDeleted = !!m.deleted_at;
+
+                let replyHtml = '';
+                if (m.reply_to) {
+                    replyHtml = `<div class="ck-reply-quote" onclick="scrollToMsg(${m.reply_to.id})" title="Jump to quoted message"><b>${esc(m.reply_to.sender_name)}:</b> ${esc(m.reply_to.body)}</div>`;
+                }
+
+                let reactionsHtml = '';
+                if (m.reactions && m.reactions.length) {
+                    reactionsHtml = `<div class="ck-reactions">${m.reactions.map(r => `
+                        <button class="ck-reaction-chip ${r.has_me ? 'me' : ''}" onclick="toggleReact(${m.id}, '${r.emoji}')" title="${r.count} reaction(s)">
+                            <span>${r.emoji}</span> <span>${r.count}</span>
+                        </button>
+                    `).join('')}</div>`;
+                }
+
+                let actionsHtml = '';
+                if (!isDeleted) {
+                    actionsHtml = `
+                    <div class="ck-actions">
+                        <button class="ck-act-btn" onclick="toggleReact(${m.id}, '👍')" title="Like">👍</button>
+                        <button class="ck-act-btn" onclick="toggleReact(${m.id}, '❤️')" title="Heart">❤️</button>
+                        <button class="ck-act-btn" onclick="toggleReact(${m.id}, '😂')" title="Laugh">😂</button>
+                        <button class="ck-act-btn" onclick="toggleReact(${m.id}, '🎉')" title="Celebrate">🎉</button>
+                        <button class="ck-act-btn" onclick="replyMsg(${m.id})" title="Reply">↩ Reply</button>
+                        <button class="ck-act-btn" onclick="togglePin(${m.id})" title="${m.is_pinned ? 'Unpin message' : 'Pin message'}">📌</button>
+                        ${me ? `<button class="ck-act-btn" onclick="editMsg(${m.id})" title="Edit">✏️</button>
+                                <button class="ck-act-btn del" onclick="deleteMsg(${m.id})" title="Delete">🗑️</button>`
+                             : `<button class="ck-act-btn" onclick="reportMsg(${m.id})" title="Report">⚑</button>`}
+                    </div>`;
+                }
+
+                const timeStr = ckTime(m.created_at);
+                const editedStr = m.edited_at && !isDeleted ? ' · <span style="opacity:0.75;">(edited)</span>' : '';
+                const pinnedBadge = m.is_pinned ? ' · <span class="ck-pinned-badge">📌 pinned</span>' : '';
+
+                return `<div class="ck-row ${me ? 'me' : 'them'}" id="ck-msg-${m.id}">
                     ${me ? '' : `<span class="ck-av" style="background:${ckAvColor(m.sender_name || '?')}">${initials(m.sender_name || '?')}</span>`}
-                    <div class="ck-mcol">${showWho ? `<div class="ck-who">${esc(m.sender_name || 'Unknown')}</div>` : ''}
-                        <div class="ck-bub">${ckFmt(m.body)}</div>
-                        <div class="ck-mtime">${ckTime(m.created_at)}${me ? '' : ` · <button class="ck-report" onclick="reportMsg(${m.id})">⚑ report</button>`}</div>
-                    </div></div>`;
+                    <div class="ck-mcol">
+                        ${showWho ? `<div class="ck-who">${esc(m.sender_name || 'Unknown')}</div>` : ''}
+                        ${actionsHtml}
+                        <div class="ck-bub ${isDeleted ? 'ck-deleted' : ''}">
+                            ${replyHtml}
+                            ${isDeleted ? '<i>🚫 This message was deleted</i>' : ckFmt(m.body)}
+                        </div>
+                        ${reactionsHtml}
+                        <div class="ck-mtime">
+                            <span>${timeStr}${editedStr}${pinnedBadge}</span>
+                        </div>
+                    </div>
+                </div>`;
             }).join('');
+
             if (all.length) CHAT.lastId = all[all.length - 1].id;
             box.scrollTop = box.scrollHeight;
         }
@@ -2338,18 +2438,138 @@
         async function sendChat() {
             const el = document.getElementById('ck-composer'); const body = el.value.trim();
             if (!body || !CHAT.active) return;
+
+            if (CHAT.editingMsg) {
+                const editId = CHAT.editingMsg.id;
+                try {
+                    const { message } = await api(`/api/chat/messages/${editId}`, { method: 'PATCH', body: JSON.stringify({ body }) });
+                    const target = CHAT.lastMsgs.find(m => m.id === editId);
+                    if (target) {
+                        target.body = message.body;
+                        target.edited_at = message.edited_at;
+                        renderMessages(CHAT.lastMsgs, false);
+                    }
+                    cancelComposerContext();
+                    refreshChatList();
+                } catch (e) { alert(e.message); }
+                return;
+            }
+
             const mentions = [];
             (body.match(/@([\w][\w.'-]*(?:\s[A-Z][\w.'-]*)?)/g) || []).forEach(tok => {
                 const nm = tok.slice(1).trim().toLowerCase();
                 const hit = EMPLOYEES.find(e => e.name.toLowerCase() === nm || e.name.toLowerCase().startsWith(nm));
                 if (hit) mentions.push(hit.id);
             });
+
+            const replyToId = CHAT.replyTo ? CHAT.replyTo.id : null;
             el.value = ''; el.style.height = 'auto';
+            cancelComposerContext();
+
             try {
-                const { message } = await api(`/api/chat/conversations/${CHAT.active}/messages`, { method: 'POST', body: JSON.stringify({ body, mentions }) });
+                const { message } = await api(`/api/chat/conversations/${CHAT.active}/messages`, {
+                    method: 'POST',
+                    body: JSON.stringify({ body, mentions, replyToId })
+                });
                 renderMessages([message], true);
                 refreshChatList();
             } catch (e) { alert(e.message); el.value = body; }
+        }
+
+        async function toggleReact(msgId, emoji) {
+            try {
+                const { reactions } = await api(`/api/chat/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ emoji }) });
+                const target = CHAT.lastMsgs.find(m => m.id === msgId);
+                if (target) {
+                    target.reactions = reactions;
+                    renderMessages(CHAT.lastMsgs, false);
+                }
+            } catch (e) { alert(e.message); }
+        }
+
+        function replyMsg(msgId) {
+            const msg = CHAT.lastMsgs.find(m => m.id === msgId);
+            if (!msg) return;
+            CHAT.replyTo = { id: msg.id, sender: msg.sender_name, body: msg.body };
+            CHAT.editingMsg = null;
+            updateContextBar();
+            const el = document.getElementById('ck-composer');
+            el.focus();
+        }
+
+        function editMsg(msgId) {
+            const msg = CHAT.lastMsgs.find(m => m.id === msgId);
+            if (!msg || msg.deleted_at) return;
+            CHAT.editingMsg = { id: msg.id, body: msg.body };
+            CHAT.replyTo = null;
+            updateContextBar();
+            const el = document.getElementById('ck-composer');
+            el.value = msg.body;
+            el.focus();
+            ckAutosize(el);
+        }
+
+        async function deleteMsg(msgId) {
+            if (!confirm('Are you sure you want to delete this message?')) return;
+            try {
+                await api(`/api/chat/messages/${msgId}`, { method: 'DELETE' });
+                const target = CHAT.lastMsgs.find(m => m.id === msgId);
+                if (target) {
+                    target.deleted_at = new Date().toISOString();
+                    target.body = '🚫 This message was deleted';
+                    renderMessages(CHAT.lastMsgs, false);
+                }
+                refreshChatList();
+            } catch (e) { alert(e.message); }
+        }
+
+        async function togglePin(msgId) {
+            try {
+                const { is_pinned } = await api(`/api/chat/messages/${msgId}/pin`, { method: 'POST' });
+                const target = CHAT.lastMsgs.find(m => m.id === msgId);
+                if (target) {
+                    target.is_pinned = is_pinned;
+                    renderMessages(CHAT.lastMsgs, false);
+                }
+            } catch (e) { alert(e.message); }
+        }
+
+        function updateContextBar() {
+            const bar = document.getElementById('ck-context-bar');
+            if (!bar) return;
+            if (CHAT.editingMsg) {
+                bar.innerHTML = `<span>✏️ <b>Editing message:</b> ${esc(CHAT.editingMsg.body.slice(0, 50))}</span>
+                                 <button class="ck-banner-x" onclick="cancelComposerContext()">✕ Cancel</button>`;
+                bar.classList.remove('hidden');
+            } else if (CHAT.replyTo) {
+                bar.innerHTML = `<span>↩ <b>Replying to ${esc(CHAT.replyTo.sender)}:</b> ${esc(CHAT.replyTo.body.slice(0, 50))}</span>
+                                 <button class="ck-banner-x" onclick="cancelComposerContext()">✕ Cancel</button>`;
+                bar.classList.remove('hidden');
+            } else {
+                bar.classList.add('hidden');
+                bar.innerHTML = '';
+            }
+        }
+
+        function cancelComposerContext() {
+            if (CHAT.editingMsg) {
+                const el = document.getElementById('ck-composer');
+                el.value = '';
+                el.style.height = 'auto';
+            }
+            CHAT.editingMsg = null;
+            CHAT.replyTo = null;
+            updateContextBar();
+        }
+
+        function scrollToMsg(id) {
+            const row = document.getElementById('ck-msg-' + id);
+            if (row) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.style.transition = 'background 0.5s';
+                row.style.background = 'var(--brand-soft)';
+                setTimeout(() => { row.style.background = ''; }, 1500);
+            }
         }
 
         async function reportMsg(id) {
@@ -2365,12 +2585,23 @@
                 if (CURRENT_VIEW !== 'chat') return;
                 try {
                     if (CHAT.active) {
-                        const data = await api(`/api/chat/conversations/${CHAT.active}/messages?after=${CHAT.lastId}`);
-                        if (data.messages && data.messages.length) renderMessages(data.messages, true);
+                        const data = await api(`/api/chat/conversations/${CHAT.active}/messages`);
+                        if (data.messages) {
+                            const newSig = JSON.stringify(data.messages);
+                            const oldSig = JSON.stringify(CHAT.lastMsgs);
+                            if (newSig !== oldSig) {
+                                const box = document.getElementById('ck-msgs');
+                                const wasNearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+                                renderMessages(data.messages, false);
+                                if (!wasNearBottom) {
+                                    box.scrollTop = box.scrollHeight;
+                                }
+                            }
+                        }
                     }
                     await refreshChatList();
                 } catch (e) { /* transient */ }
-            }, 4000);
+            }, 3000);
         }
         function stopChatPolling() { if (CHAT.poll) { clearInterval(CHAT.poll); CHAT.poll = null; } }
 
