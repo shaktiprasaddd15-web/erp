@@ -12,16 +12,23 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-// Managed cloud providers (Neon, Supabase, RDS) require SSL. A self-hosted
+// Managed cloud providers (Neon, Supabase, RDS) require SSL.
+// Neon connection strings (neon.tech) require SSL. A self-hosted
 // Postgres (e.g. in Docker Compose, or on the same VPS) usually doesn't have
 // SSL configured at all, so set DB_SSL=false explicitly in that case.
 // DB_SSL is opt-out: anything other than the literal string "false" enables SSL.
 const useSSL = process.env.DB_SSL !== 'false';
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: useSSL ? { rejectUnauthorized: false } : false,
   max: 10,
   idleTimeoutMillis: 30000,
+  // Neon serverless compute instances suspend when idle. Allow up to 15s
+  // for Neon compute auto-resume (cold start) during connection acquisition.
+  connectionTimeoutMillis: 15000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 });
 
 pool.on('error', (err) => {
